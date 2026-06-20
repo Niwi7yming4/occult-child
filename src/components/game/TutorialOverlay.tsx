@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '@/store/useGameStore';
 import { TutorialStep } from '@/data/tutorial';
+import { useI18n } from '@/lib/i18n';
 
 const TOOLTIP_POSITIONS = {
   top: 'bottom-full left-1/2 -translate-x-1/2 mb-3',
@@ -15,6 +16,7 @@ export default function TutorialOverlay() {
   const { activeTutorial, tutorialIndex, advanceTutorial, dismissTutorial, markTutorialSeen } = useGameStore();
   const step: TutorialStep | null = activeTutorial?.[tutorialIndex] ?? null;
   const isLast = activeTutorial ? tutorialIndex >= activeTutorial.length - 1 : true;
+  const { t } = useI18n();
 
   useEffect(() => {
     if (!step?.target) return;
@@ -113,7 +115,7 @@ export default function TutorialOverlay() {
                     dismissTutorial();
                   }}
                 >
-                  跳過教學
+                  {t('跳過教學')}
                 </button>
                 <button
                   className="btn-seal px-5 py-2 text-sm tracking-wider"
@@ -126,7 +128,7 @@ export default function TutorialOverlay() {
                     }
                   }}
                 >
-                  {isLast ? '完成' : '下一步'}
+                  {isLast ? t('完成') : t('下一步')}
                 </button>
               </div>
             </div>

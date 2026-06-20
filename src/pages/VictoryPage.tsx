@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useGameStore } from '@/store/useGameStore';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useI18n } from '@/lib/i18n';
 
 const PETAL_COUNT = 24;
 
 export default function VictoryPage() {
   const { startNewGame, turnNumber, lanternCount, currentDimensions } = useGameStore();
+  const { t } = useI18n();
   const [showContent, setShowContent] = useState(false);
 
   useEffect(() => {
@@ -73,7 +75,7 @@ export default function VictoryPage() {
                   color: '#D04030',
                   textShadow: '0 0 40px rgba(208,64,48,0.6), 2px 4px 8px rgba(0,0,0,0.8)',
                 }}>
-                破局！
+                 {t('破局！')}
               </div>
             </motion.div>
 
@@ -83,7 +85,7 @@ export default function VictoryPage() {
               transition={{ delay: 0.5 }}
               className="font-serif text-xl text-[#C8A46A] tracking-widest mb-2"
             >
-              你們成功逃離了黃昏村
+               {t('你們成功逃離了黃昏村')}
             </motion.div>
 
             <motion.div
@@ -92,7 +94,7 @@ export default function VictoryPage() {
               transition={{ delay: 0.8 }}
               className="font-serif text-sm text-[#907060]/70 italic mb-10 tracking-wider"
             >
-              第一道晨光，終於穿透了薄暮。
+               {t('第一道晨光，終於穿透了薄暮。')}
             </motion.div>
 
             {/* Stats panel — open book style */}
@@ -104,24 +106,24 @@ export default function VictoryPage() {
             >
               {/* Book header */}
               <div className="text-center font-serif text-[#5A3A18]/60 text-xs tracking-[0.5em] mb-4 pb-3 border-b border-[rgba(60,36,16,0.15)]">
-                見聞錄 ・ 今局記要
+                 {t('見聞錄 ・ 今局記要')}
               </div>
 
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="font-serif text-[#5A3A18]/65 text-sm">破局方式</span>
-                  <span className="font-serif font-bold text-[#B5382C]">{currentDimensions?.victory.name}</span>
+                   <span className="font-serif text-[#5A3A18]/65 text-sm">{t('破局方式')}</span>
+                   <span className="font-serif font-bold text-[#B5382C]">{t(currentDimensions?.victory.name)}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="font-serif text-[#5A3A18]/65 text-sm">追逐者</span>
-                  <span className="font-serif font-bold text-[#2A1A0E]">{currentDimensions?.chaser.name}</span>
+                   <span className="font-serif text-[#5A3A18]/65 text-sm">{t('追逐者')}</span>
+                   <span className="font-serif font-bold text-[#2A1A0E]">{t(currentDimensions?.chaser.name)}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="font-serif text-[#5A3A18]/65 text-sm">生還回合</span>
-                  <span className="font-serif font-bold text-[#2A1A0E]">{turnNumber} 回合</span>
+                   <span className="font-serif text-[#5A3A18]/65 text-sm">{t('生還回合')}</span>
+                   <span className="font-serif font-bold text-[#2A1A0E]">{turnNumber} {t('回合')}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="font-serif text-[#5A3A18]/65 text-sm">殘存燈火</span>
+                   <span className="font-serif text-[#5A3A18]/65 text-sm">{t('殘存燈火')}</span>
                   <div className="flex items-center gap-1.5">
                     <span className="font-serif font-bold text-[#C8A046]">{lanternCount}</span>
                     <div className="flex gap-0.5">
@@ -134,15 +136,15 @@ export default function VictoryPage() {
                 </div>
                 {currentDimensions?.deity && (
                   <div className="flex justify-between items-center">
-                    <span className="font-serif text-[#5A3A18]/65 text-sm">在場神明</span>
-                    <span className="font-serif font-bold text-[#D4A040]">{currentDimensions.deity.name}</span>
+                     <span className="font-serif text-[#5A3A18]/65 text-sm">{t('在場神明')}</span>
+                     <span className="font-serif font-bold text-[#D4A040]">{t(currentDimensions.deity.name)}</span>
                   </div>
                 )}
               </div>
 
               {/* Flavor text */}
               <div className="mt-4 pt-3 border-t border-[rgba(60,36,16,0.12)] text-[11px] text-[#5A3A18]/50 font-serif italic text-center leading-relaxed">
-                「那一夜的事，我會記得一輩子。」
+                {t('「那一夜的事，我會記得一輩子。」')}
               </div>
             </motion.div>
 
@@ -157,7 +159,7 @@ export default function VictoryPage() {
               onClick={() => startNewGame()}
               data-testid="btn-play-again"
             >
-              再來一局
+               {t('再來一局')}
             </motion.button>
           </motion.div>
         )}

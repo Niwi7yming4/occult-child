@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CharacterPortrait } from '@/components/art/CharacterPortrait';
 import AmbientParticles from '@/components/art/AmbientParticles';
 import LobbyPanel from '@/components/game/LobbyPanel';
+import { useI18n } from '@/lib/i18n';
 
 const MENU_ITEMS = [
   { label: '單人劇情', action: 'single', enabled: true },
@@ -15,6 +16,7 @@ const MENU_ITEMS = [
 
 export default function MenuPage() {
   const { startNewGame } = useGameStore();
+  const { t, lang, setLang } = useI18n();
   const [selectedChar, setSelectedChar] = useState(CHARACTERS[0].id);
   const [phase, setPhase] = useState<'menu' | 'select' | 'lobby'>('menu');
 
@@ -101,26 +103,26 @@ export default function MenuPage() {
         >
           {/* Red seal stamp decorations */}
           <div className="flex justify-center gap-2 mb-4 opacity-50">
-            <div className="w-12 h-12 border-2 border-[#B5382C] rounded-sm flex items-center justify-center text-[#B5382C] text-xs font-serif">
-              怪<br/>談
-            </div>
-            <div className="w-12 h-12 border-2 border-[#B5382C] rounded-sm flex items-center justify-center text-[#B5382C] text-xs font-serif">
-              民<br/>俗
-            </div>
+            <div className="w-12 h-12 border-2 border-[#B5382C] rounded-sm flex items-center justify-center text-[#B5382C] text-xs font-serif leading-tight text-center">
+               {t('怪')}<br/>{t('談')}
+             </div>
+             <div className="w-12 h-12 border-2 border-[#B5382C] rounded-sm flex items-center justify-center text-[#B5382C] text-xs font-serif leading-tight text-center">
+               {t('民')}<br/>{t('俗')}
+             </div>
           </div>
 
-          <h1 className="font-serif font-black tracking-[0.4em] leading-none drop-shadow-[0_0_30px_rgba(181,56,44,0.5)]"
-            style={{ fontSize: 'clamp(5rem,12vw,10rem)', color: '#C84030', textShadow: '0 0 60px rgba(181,56,44,0.35), 2px 4px 8px rgba(0,0,0,0.8)' }}>
-            野孩子
-          </h1>
+             <h1 className="font-serif font-black tracking-[0.4em] leading-none drop-shadow-[0_0_30px_rgba(181,56,44,0.5)]"
+             style={{ fontSize: 'clamp(5rem,12vw,10rem)', color: '#C84030', textShadow: '0 0 60px rgba(181,56,44,0.35), 2px 4px 8px rgba(0,0,0,0.8)' }}>
+             {t('野孩子')}
+           </h1>
 
-          <div className="text-[#C8A46A] font-serif tracking-[0.5em] text-sm mt-3 opacity-80">
-            黃昏村怪談 ・ 箱庭探索 ・ 卡牌對峙
-          </div>
-
-          <div className="mt-4 text-[#907060] italic tracking-widest text-sm font-serif">
-            「天快黑了，這次，你不是一個人。」
-          </div>
+           <div className="text-[#C8A46A] font-serif tracking-[0.5em] text-sm mt-3 opacity-80">
+             {t('黃昏村怪談 ・ 箱庭探索 ・ 卡牌對峙')}
+           </div>
+ 
+           <div className="mt-4 text-[#907060] italic tracking-widest text-sm font-serif">
+             {t('「天快黑了，這次，你不是一個人。」')}
+           </div>
         </motion.div>
 
         <AnimatePresence mode="wait">
@@ -159,19 +161,35 @@ export default function MenuPage() {
                     disabled={!item.enabled}
                     data-testid={`menu-${item.action}`}
                   >
-                    {item.label}
+                     {t(item.label)}
                   </motion.button>
                 ))}
               </div>
 
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 0.45 }}
-                transition={{ delay: 1.2 }}
-                className="text-[#907060] text-xs font-serif tracking-widest text-center"
-              >
-                野孩子 1.0 ・ 黃昏村箱庭探索 Roguelike
-              </motion.p>
+               <motion.p
+                 initial={{ opacity: 0 }}
+                 animate={{ opacity: 0.45 }}
+                 transition={{ delay: 1.2 }}
+                 className="text-[#907060] text-xs font-serif tracking-widest text-center"
+               >
+                 {t('野孩子 1.0 ・ 黃昏村箱庭探索 Roguelike')}
+               </motion.p>
+ 
+               {/* Language switcher */}
+               <div className="flex gap-3 mt-2">
+                 <button
+                   onClick={() => setLang('zh')}
+                   className={`text-xs font-serif tracking-wider px-3 py-1 rounded transition-colors ${lang === 'zh' ? 'text-[#C8A46A] border border-[#C8A46A]/40' : 'text-[#5A4030]/60 hover:text-[#907060]'}`}
+                 >
+                   {t('中文')}
+                 </button>
+                 <button
+                   onClick={() => setLang('en')}
+                   className={`text-xs font-serif tracking-wider px-3 py-1 rounded transition-colors ${lang === 'en' ? 'text-[#C8A46A] border border-[#C8A46A]/40' : 'text-[#5A4030]/60 hover:text-[#907060]'}`}
+                 >
+                   EN
+                 </button>
+               </div>
             </motion.div>
           ) : (
             <motion.div
@@ -182,9 +200,9 @@ export default function MenuPage() {
               transition={{ duration: 0.5 }}
               className="w-full"
             >
-              <h2 className="text-center font-serif text-[#C8A46A] tracking-[0.4em] text-lg mb-6">
-                選擇你的化身
-              </h2>
+               <h2 className="text-center font-serif text-[#C8A46A] tracking-[0.4em] text-lg mb-6">
+                 {t('選擇你的化身')}
+               </h2>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                 {CHARACTERS.map((char, i) => (
@@ -205,23 +223,23 @@ export default function MenuPage() {
                     }`}>
                       {/* Seal corner */}
                       {selectedChar === char.id && (
-                        <div className="absolute top-2 right-2 w-7 h-7 border border-[#B5382C] flex items-center justify-center text-[#B5382C] text-[9px] font-serif leading-tight rounded-sm">
-                          選<br/>定
-                        </div>
+                         <div className="absolute top-2 right-2 w-7 h-7 border border-[#B5382C] flex items-center justify-center text-[#B5382C] text-[9px] font-serif leading-tight rounded-sm">
+                           {t('選')}<br/>{t('定')}
+                         </div>
                       )}
                       <div className="mb-2 float-gentle" style={{ animationDelay: `${i * 0.5}s` }}>
                         <CharacterPortrait characterId={char.id} size={72} shadow={selectedChar === char.id} />
                       </div>
-                      <h3 className="font-serif font-bold text-lg mb-1" style={{ color: char.color }}>
-                        {char.name}
-                      </h3>
-                      <div className="text-xs px-2 py-0.5 rounded-sm mb-3 font-serif"
-                        style={{ background: char.color + '22', color: char.color, border: `1px solid ${char.color}55` }}>
-                        {char.role}
-                      </div>
-                      <p className="text-[11px] text-[#3A2818]/70 leading-relaxed">
-                        {char.talent}
-                      </p>
+                       <h3 className="font-serif font-bold text-lg mb-1" style={{ color: char.color }}>
+                         {t(char.name)}
+                       </h3>
+                       <div className="text-xs px-2 py-0.5 rounded-sm mb-3 font-serif"
+                         style={{ background: char.color + '22', color: char.color, border: `1px solid ${char.color}55` }}>
+                         {t(char.role)}
+                       </div>
+                       <p className="text-[11px] text-[#3A2818]/70 leading-relaxed">
+                         {t(char.talent)}
+                       </p>
                     </div>
                   </motion.div>
                 ))}
@@ -238,31 +256,31 @@ export default function MenuPage() {
                     className="panel-paper rounded p-4 mb-6 text-sm overflow-hidden"
                   >
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <div className="text-[#8B6030] text-xs mb-1 font-serif">探索技能</div>
-                        <div className="text-[#2A1A0E]/80 leading-relaxed text-xs">{char.exploreBonus}</div>
-                      </div>
-                      <div>
-                        <div className="text-[#8B6030] text-xs mb-1 font-serif">牌局加成</div>
-                        <div className="text-[#2A1A0E]/80 leading-relaxed text-xs">{char.battleBonus}</div>
-                      </div>
+                       <div>
+                         <div className="text-[#8B6030] text-xs mb-1 font-serif">{t('探索技能')}</div>
+                         <div className="text-[#2A1A0E]/80 leading-relaxed text-xs">{t(char.exploreBonus)}</div>
+                       </div>
+                       <div>
+                         <div className="text-[#8B6030] text-xs mb-1 font-serif">{t('牌局加成')}</div>
+                         <div className="text-[#2A1A0E]/80 leading-relaxed text-xs">{t(char.battleBonus)}</div>
+                       </div>
                     </div>
                   </motion.div>
                 ))}
               </AnimatePresence>
 
               <div className="flex gap-4 justify-center">
-                <button className="btn-wood px-8 py-3 text-base" onClick={() => setPhase('menu')}>
-                  ← 返回
-                </button>
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
-                  className="btn-seal px-12 py-3 text-xl tracking-widest"
-                  onClick={handleStart}
-                  data-testid="btn-start-game"
-                >
-                  踏入村落
-                </motion.button>
+                 <button className="btn-wood px-8 py-3 text-base" onClick={() => setPhase('menu')}>
+                   ← {t('返回')}
+                 </button>
+                 <motion.button
+                   whileTap={{ scale: 0.97 }}
+                   className="btn-seal px-12 py-3 text-xl tracking-widest"
+                   onClick={handleStart}
+                   data-testid="btn-start-game"
+                 >
+                   {t('踏入村落')}
+                 </motion.button>
               </div>
             </motion.div>
           )}
@@ -270,9 +288,9 @@ export default function MenuPage() {
       </div>
 
       {/* Bottom attribution */}
-      <div className="absolute bottom-4 z-20 text-[#5A4030]/60 text-[10px] tracking-widest font-serif">
-        鄉野奇譚 ・ 合作解謎 ・ 民俗怪談
-      </div>
+       <div className="absolute bottom-4 z-20 text-[#5A4030]/60 text-[10px] tracking-widest font-serif">
+         {t('鄉野奇譚 ・ 合作解謎 ・ 民俗怪談')}
+       </div>
     </div>
   );
 }

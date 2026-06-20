@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useGameStore } from '@/store/useGameStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IconSparkle, IconCross, IconStar } from '@/components/art/GameIcons';
+import { useI18n } from '@/lib/i18n';
 
 const OUTCOME_CONFIG = {
   great_success: {
@@ -46,6 +47,7 @@ export default function DiceModal() {
   const { pendingDice, showDiceModal, closeDiceModal } = useGameStore();
 
   const [phase, setPhase] = useState<'ready' | 'rolling' | 'reveal'>('ready');
+  const { t } = useI18n();
   const [displayNum, setDisplayNum] = useState(50);
 
   useEffect(() => {
@@ -106,26 +108,26 @@ export default function DiceModal() {
 
           <div className="relative z-10 p-8 flex flex-col items-center text-center">
             {/* Header */}
-            <div className="font-serif text-[#5A3A18] text-xs tracking-[0.5em] mb-1 opacity-60">判定檢定</div>
+            <div className="font-serif text-[#5A3A18] text-xs tracking-[0.5em] mb-1 opacity-60">{t('判定檢定')}</div>
             <div className="font-serif font-bold text-xl text-[#1A1714] mb-5 tracking-wider">
               {/* Could show the label if stored, fallback to generic */}
-              骰子滾動
+              {t('骰子滾動')}
             </div>
 
             {/* Rate breakdown */}
             <div className="w-full bg-[rgba(60,36,16,0.06)] rounded px-5 py-4 mb-6 text-left border border-[rgba(60,36,16,0.1)]">
               <div className="flex justify-between text-sm font-serif mb-1.5">
-                <span className="text-[#5A3A18]/70">基礎成功率</span>
+                <span className="text-[#5A3A18]/70">{t('基礎成功率')}</span>
                 <span className="text-[#2A1A0E] font-bold">{baseRate}%</span>
               </div>
               {pendingDice.bonuses.map((b, i) => (
                 <div key={i} className="flex justify-between text-sm font-serif mb-1.5">
-                  <span className="text-[#5BA87A]/80">＋{b.source}</span>
+                  <span className="text-[#5BA87A]/80">＋{t(b.source)}</span>
                   <span className="text-[#5BA87A] font-bold">+{b.value}%</span>
                 </div>
               ))}
               <div className="border-t border-[rgba(60,36,16,0.15)] mt-2 pt-2 flex justify-between font-serif font-bold">
-                <span className="text-[#2A1A0E]">最終成功率</span>
+                <span className="text-[#2A1A0E]">{t('最終成功率')}</span>
                 <span className="text-[#1A1714] text-lg">{pendingDice.finalRate}%</span>
               </div>
             </div>
@@ -188,13 +190,13 @@ export default function DiceModal() {
                       </svg>
                     )}
                     {outcomeConfig.icon === 'cross' && <IconCross size={28} className="mt-1" />}
-                    {outcomeConfig.label}
+                    {t(outcomeConfig.label)}
                   </div>
                   <div className="font-serif text-sm mb-3" style={{ color: outcomeConfig.color + 'AA' }}>
-                    {outcomeConfig.sub}
+                    {t(outcomeConfig.sub)}
                   </div>
                   <div className="text-[#3A2A18]/65 text-sm leading-relaxed bg-[rgba(60,36,16,0.06)] rounded px-4 py-3">
-                    {pendingDice.message}
+                    {t(pendingDice.message)}
                   </div>
 
                   {/* Great success / great failure particles */}
@@ -222,14 +224,14 @@ export default function DiceModal() {
                 </motion.div>
               ) : phase === 'ready' ? (
                 <motion.div key="ready" className="mb-6 text-[#5A3A18]/60 text-sm font-serif">
-                  準備好了嗎？
+                  {t('準備好了嗎？')}
                 </motion.div>
               ) : (
                 <motion.div key="rolling"
                   animate={{ opacity: [0.5, 1, 0.5] }}
                   transition={{ repeat: Infinity, duration: 0.4 }}
                   className="mb-6 text-[#5A3A18]/80 text-sm font-serif">
-                  滾動中……
+                  {t('滾動中……')}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -243,7 +245,7 @@ export default function DiceModal() {
                 onClick={handleRoll}
                 data-testid="btn-roll-dice"
               >
-                擲骰
+                {t('擲骰')}
               </motion.button>
             )}
             {phase === 'rolling' && (
@@ -262,7 +264,7 @@ export default function DiceModal() {
                 onClick={closeDiceModal}
                 data-testid="btn-close-dice"
               >
-                確認
+                {t('確認')}
               </motion.button>
             )}
           </div>

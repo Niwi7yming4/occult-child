@@ -1,20 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { useGameStore } from '@/store/useGameStore';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useI18n } from '@/lib/i18n';
 
 const CANDLE_COUNT = 10;
 
 export default function DefeatPage() {
   const { startNewGame, lanternCount, tabooViolations } = useGameStore();
+  const { t } = useI18n();
   const [extinguished, setExtinguished] = useState(0);
   const [showText, setShowText] = useState(false);
   const [showButton, setShowButton] = useState(false);
 
   const isTabooDefeat = tabooViolations >= 3;
-  const subtitle = isTabooDefeat ? '禁忌的代價' : '燈火熄滅';
+  const subtitle = isTabooDefeat ? t('禁忌的代價') : t('燈火熄滅');
   const flavor = isTabooDefeat
-    ? '你踏過了不該踏過的界線。'
-    : '最後一根蠟燭，靜靜地熄滅了。';
+    ? t('你踏過了不該踏過的界線。')
+    : t('最後一根蠟燭，靜靜地熄滅了。');
 
   useEffect(() => {
     // Candles go out one by one
@@ -113,19 +115,19 @@ export default function DefeatPage() {
               transition={{ repeat: Infinity, duration: 3 }}
               className="font-serif text-[#3A2818]/40 text-sm mt-2 tracking-[0.3em]"
             >
-              黑暗吞噬了你們……
+               {t('黑暗吞噬了你們……')}
             </motion.div>
 
             {/* Stats */}
             <div className="mt-8 px-8 py-5 rounded-sm text-sm space-y-2"
               style={{ background: 'rgba(20,12,6,0.6)', border: '1px solid rgba(90,64,48,0.2)' }}>
               {isTabooDefeat ? (
-                <div className="font-serif text-[#9B72C8]/70">
-                  觸犯禁忌 {tabooViolations}/3 次
-                </div>
-              ) : (
-                <div className="font-serif text-[#C8A46A]/50">
-                  燈火耗盡，黑暗降臨
+                 <div className="font-serif text-[#9B72C8]/70">
+                   {t('觸犯禁忌')} {tabooViolations}/3 {t('次')}
+                 </div>
+               ) : (
+                 <div className="font-serif text-[#C8A46A]/50">
+                   {t('燈火耗盡，黑暗降臨')}
                 </div>
               )}
             </div>
@@ -149,10 +151,10 @@ export default function DefeatPage() {
               onClick={() => startNewGame()}
               data-testid="btn-retry"
             >
-              重新踏入村落
+               {t('重新踏入村落')}
             </motion.button>
             <div className="text-center text-[#3A2818]/35 text-[10px] font-serif mt-3 tracking-widest">
-              勇氣，是再次點燃燈火的力量
+               {t('勇氣，是再次點燃燈火的力量')}
             </div>
           </motion.div>
         )}

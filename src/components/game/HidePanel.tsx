@@ -3,6 +3,7 @@ import { useGameStore } from '@/store/useGameStore';
 import { evaluateHide } from '@/systems/hideSystem';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IconHeart, IconCross, IconCheck } from '@/components/art/GameIcons';
+import { useI18n } from '@/lib/i18n';
 
 type GamePhase = 'idle' | 'ready' | 'holding' | 'result';
 
@@ -19,6 +20,7 @@ export default function HidePanel() {
     environment, players, localPlayerId, chaserPosition,
     startBreathCheck, resolveBreathCheck, stopHiding, addLog,
   } = useGameStore();
+  const { t } = useI18n();
 
   const player = players.find(p => p.id === localPlayerId);
   const chaserDistance = player ? Math.abs(chaserPosition - player.boardPosition) : 99;
@@ -96,7 +98,7 @@ export default function HidePanel() {
       });
       setPromptFlash(true);
     } else {
-      addLog('你成功壓制了身體的反應……', 'info');
+      addLog(t('你成功壓制了身體的反應……'), 'info');
     }
     setActivePrompt(null);
     // Spawn next prompt in 0.8-2s
@@ -148,7 +150,7 @@ export default function HidePanel() {
     if (holdingRef.current) {
       holdingRef.current = false;
       endGame(false);
-      addLog('你過早鬆開了屏息……', 'danger');
+      addLog(t('你過早鬆開了屏息……'), 'danger');
     }
   };
 
@@ -178,34 +180,34 @@ export default function HidePanel() {
           {/* Header */}
           <div className="px-3 py-2 flex items-center justify-between"
             style={{ background: 'rgba(60,36,16,0.1)', borderBottom: '1px solid rgba(60,36,16,0.15)' }}>
-            <span className="font-serif text-[11px] text-[#2A1A0E] tracking-wider">躲藏中</span>
-            <span className="text-[9px] text-[#907060]/60">{breathHoldTurns} 輪</span>
+            <span className="font-serif text-[11px] text-[#2A1A0E] tracking-wider">{t('躲藏中')}</span>
+            <span className="text-[9px] text-[#907060]/60">{breathHoldTurns} {t('輪')}</span>
           </div>
 
           {/* Status rows */}
           <div className="px-3 py-2 space-y-1.5">
             <div className="flex justify-between text-[10px]">
-              <span className="text-[#907060]/70">被發現率</span>
+              <span className="text-[#907060]/70">{t('被發現率')}</span>
               <span className={`font-bold ${hideEval.detectionChance >= 70 ? 'text-[#D04030]' : hideEval.detectionChance >= 40 ? 'text-[#C8A040]' : 'text-[#5BA87A]'}`}>
                 {hideEval.detectionChance}%
               </span>
             </div>
             <div className="flex justify-between text-[10px]">
-              <span className="text-[#907060]/70">屏息極限</span>
-              <span className="text-[#2A1A0E] font-bold">{hideEval.breathLimit} 輪</span>
+              <span className="text-[#907060]/70">{t('屏息極限')}</span>
+              <span className="text-[#2A1A0E] font-bold">{hideEval.breathLimit} {t('輪')}</span>
             </div>
             <div className="flex justify-between text-[10px]">
-              <span className="text-[#907060]/70">追逐者距離</span>
+              <span className="text-[#907060]/70">{t('追逐者距離')}</span>
               <span className={`font-bold ${chaserDistance <= 1 ? 'text-[#D04030]' : chaserDistance <= 2 ? 'text-[#C8A040]' : 'text-[#5BA87A]'}`}>
-                {chaserDistance} 格
+                {chaserDistance} {t('格')}
                 <span className="text-[9px] text-[#907060]/50 ml-1">{distMod}</span>
               </span>
             </div>
             {hideEval.detectionChance > 30 && (
               <div className="text-[9px] text-[#907060]/50 border-t border-[rgba(60,36,16,0.1)] pt-1 mt-1">
-                {chaserDistance <= 1 ? '追逐者就在附近！' :
-                 chaserDistance <= 2 ? '追逐者正在靠近……' :
-                 '環境不利於躲藏'}
+                {chaserDistance <= 1 ? t('追逐者就在附近！') :
+                 chaserDistance <= 2 ? t('追逐者正在靠近……') :
+                 t('環境不利於躲藏')}
               </div>
             )}
           </div>
@@ -219,7 +221,7 @@ export default function HidePanel() {
               onClick={startBreathCheck}
               style={{ fontSize: '11px' }}
             >
-              屏息
+              {t('屏息')}
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.03 }}
@@ -227,7 +229,7 @@ export default function HidePanel() {
               className="btn-wood px-3 py-2 text-xs"
               onClick={stopHiding}
             >
-              離開
+              {t('離開')}
             </motion.button>
           </div>
         </div>
@@ -254,36 +256,36 @@ export default function HidePanel() {
               <div className="relative z-10 p-6 flex flex-col items-center">
 
                 {/* Title */}
-                <div className="font-serif text-[#5A3A18]/60 text-xs tracking-[0.5em] mb-1">屏息時刻</div>
+                <div className="font-serif text-[#5A3A18]/60 text-xs tracking-[0.5em] mb-1">{t('屏息時刻')}</div>
 
                 {gamePhase === 'ready' && (
                   <>
                     {/* Rate breakdown */}
                     <div className="w-full bg-[rgba(60,36,16,0.06)] rounded px-4 py-3 mt-3 mb-5 text-left border border-[rgba(60,36,16,0.1)]">
                       <div className="flex justify-between text-[11px] font-serif mb-1">
-                        <span className="text-[#5A3A18]/70">基礎被發現率</span>
+                        <span className="text-[#5A3A18]/70">{t('基礎被發現率')}</span>
                         <span className="text-[#2A1A0E] font-bold">30%</span>
                       </div>
                       {chaserDistance <= 1 && (
                         <div className="flex justify-between text-[11px] font-serif mb-1">
-                          <span className="text-[#D04030]/80">距離 ≤ 1</span>
+                          <span className="text-[#D04030]/80">{t('距離 ≤ 1')}</span>
                           <span className="text-[#D04030] font-bold">+30%</span>
                         </div>
                       )}
                       {chaserDistance === 2 && (
                         <div className="flex justify-between text-[11px] font-serif mb-1">
-                          <span className="text-[#C8A040]/80">距離 = 2</span>
+                          <span className="text-[#C8A040]/80">{t('距離 = 2')}</span>
                           <span className="text-[#C8A040] font-bold">+15%</span>
                         </div>
                       )}
                       {hideEval.detectionChance > 30 + (chaserDistance <= 1 ? 30 : chaserDistance === 2 ? 15 : 0) && (
                         <div className="flex justify-between text-[11px] font-serif mb-1">
-                          <span className="text-[#907060]/80">環境懲罰</span>
+                          <span className="text-[#907060]/80">{t('環境懲罰')}</span>
                           <span className="text-[#907060] font-bold">+{hideEval.detectionChance - 30 - (chaserDistance <= 1 ? 30 : chaserDistance === 2 ? 15 : 0)}%</span>
                         </div>
                       )}
                       <div className="border-t border-[rgba(60,36,16,0.12)] mt-2 pt-2 flex justify-between font-serif font-bold">
-                        <span className="text-[#2A1A0E]">被發現率</span>
+                        <span className="text-[#2A1A0E]">{t('被發現率')}</span>
                         <span className={`text-lg ${breathHoldDetectionChance >= 70 ? 'text-[#D04030]' : breathHoldDetectionChance >= 40 ? 'text-[#C8A040]' : 'text-[#5BA87A]'}`}>
                           {breathHoldDetectionChance}%
                         </span>
@@ -291,8 +293,8 @@ export default function HidePanel() {
                     </div>
 
                     <p className="text-[#5A3A18]/60 text-xs font-serif mb-5 text-center leading-relaxed">
-                      按住按鈕保持屏息。<br/>
-                      應對突然出現的干擾，不要被發現！
+                      {t('按住按鈕保持屏息。')}<br/>
+                      {t('應對突然出現的干擾，不要被發現！')}
                     </p>
 
                     <motion.button
@@ -302,7 +304,7 @@ export default function HidePanel() {
                       onClick={startHolding}
                       data-testid="btn-start-breathhold"
                     >
-                      開始屏息
+                      {t('開始屏息')}
                     </motion.button>
                   </>
                 )}
@@ -326,7 +328,7 @@ export default function HidePanel() {
                         <IconHeart size={32} style={{ color: progress > 70 ? '#D04030' : '#C8A46A' }} />
                       </motion.div>
                       <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[9px] text-[#907060]/50 font-serif whitespace-nowrap">
-                        心跳 {Math.round(heartbeat * 60)} bpm
+                        {t('心跳')} {Math.round(heartbeat * 60)} bpm
                       </div>
                     </div>
 
@@ -350,7 +352,7 @@ export default function HidePanel() {
                           }}
                           data-testid="btn-hold-breath"
                         >
-                          {(progress > 70 && progress < 100) ? '快撐不住了…' : progress >= 100 ? '成功！' : '按住屏息'}
+                          {progress > 70 && progress < 100 ? t('快撐不住了…') : progress >= 100 ? t('成功！') : t('按住屏息')}
                         </motion.button>
                       </div>
                     </div>
@@ -381,7 +383,7 @@ export default function HidePanel() {
                           className="w-full text-center mb-3"
                         >
                           <div className="font-serif font-bold text-sm text-[#2A1A0E] mb-2">
-                            {activePrompt.text}
+                            {t(activePrompt.text)}
                           </div>
                           <div className="flex gap-3 justify-center">
                             <motion.button
@@ -391,7 +393,7 @@ export default function HidePanel() {
                               style={{ background: '#5BA87A', color: '#F0EBE1' }}
                               onClick={() => handlePromptResponse(true)}
                             >
-                              {activePrompt.button}
+                              {t(activePrompt.button)}
                             </motion.button>
                             <motion.button
                               whileHover={{ scale: 1.05 }}
@@ -400,7 +402,7 @@ export default function HidePanel() {
                               style={{ background: 'rgba(60,36,16,0.1)', color: '#2A1A0E' }}
                               onClick={() => handlePromptResponse(false)}
                             >
-                              {activePrompt.button2}
+                              {t(activePrompt.button2)}
                             </motion.button>
                           </div>
                         </motion.div>
@@ -422,7 +424,7 @@ export default function HidePanel() {
                     </AnimatePresence>
 
                     <div className="text-[10px] text-[#907060]/50 font-serif">
-                      失誤 {missedPrompts}/{MAX_MISSED}
+                      {t('失誤')} {missedPrompts}/{MAX_MISSED}
                     </div>
                   </>
                 )}
@@ -434,20 +436,20 @@ export default function HidePanel() {
                         <>
                           <div className="font-serif font-black text-3xl text-[#5BA87A] mb-2"
                             style={{ textShadow: '0 0 20px rgba(91,168,122,0.6)' }}>
-                            <IconCheck size={28} className="inline mr-1" /> 成功
+                            <IconCheck size={28} className="inline mr-1" /> {t('成功')}
                           </div>
                           <div className="font-serif text-sm text-[#5BA87A]/80">
-                            你保持了屏息，未被發現。
+                            {t('你保持了屏息，未被發現。')}
                           </div>
                         </>
                       ) : (
                         <>
                           <div className="font-serif font-black text-3xl text-[#D04030] mb-2"
                             style={{ textShadow: '0 0 20px rgba(208,64,48,0.6)' }}>
-                            <IconCross size={28} className="inline mr-1" /> 被發現
+                            <IconCross size={28} className="inline mr-1" /> {t('被發現')}
                           </div>
                           <div className="font-serif text-sm text-[#D04030]/80">
-                            追逐者發現了你！
+                            {t('追逐者發現了你！')}
                           </div>
                         </>
                       )}
@@ -463,7 +465,7 @@ export default function HidePanel() {
                       onClick={handleResolve}
                       data-testid="btn-resolve-breath"
                     >
-                      確認
+                      {t('確認')}
                     </motion.button>
                   </>
                 )}

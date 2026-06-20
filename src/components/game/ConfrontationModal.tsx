@@ -4,6 +4,7 @@ import { getCardById } from '@/data/cards';
 import { CHARACTERS } from '@/data/characters';
 import { CardArtwork } from '@/components/art/CardArtwork';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useI18n } from '@/lib/i18n';
 
 const TAG_COLORS: Record<string, string> = {
   '守': '#5B90D8', '逃': '#5BA87A', '咒': '#9B72C8',
@@ -21,6 +22,8 @@ export default function ConfrontationModal({ open, onClose }: Props) {
     players, localPlayerId, currentDimensions, chaserThreat,
     handleConfrontation, rollDice, addLog, showDiceModal, battleFlags,
   } = useGameStore();
+
+  const { t } = useI18n();
 
   const player = players.find(p => p.id === localPlayerId);
   const character = CHARACTERS.find(c => c.id === player?.characterId);
@@ -46,7 +49,7 @@ export default function ConfrontationModal({ open, onClose }: Props) {
   if (!open) return null;
 
   const card = selectedCard ? getCardById(selectedCard) : null;
-  const chaserName = currentDimensions?.chaser.name ?? '追逐者';
+  const chaserName = currentDimensions?.chaser.name ?? t('追逐者');
   const tagInteraction = currentDimensions?.chaser.tagInteraction ?? '';
 
   // Calculate potential success rate (matches spec: 70/50/30 + tag + character)
@@ -72,7 +75,7 @@ export default function ConfrontationModal({ open, onClose }: Props) {
   };
 
   const rate = calcRate();
-  const cardVsThreat = card ? (card.number > chaserThreat ? '勝' : card.number === chaserThreat ? '平' : '敗') : null;
+  const cardVsThreat = card ? (card.number > chaserThreat ? t('勝') : card.number === chaserThreat ? t('平') : t('敗')) : null;
 
   const handleConfront = () => {
     if (!selectedCard || !card) return;
@@ -93,7 +96,7 @@ export default function ConfrontationModal({ open, onClose }: Props) {
         players: players.map(p => p.id === localPlayerId ? { ...p, boardPosition: newPos } : p)
       });
     }
-    addLog(`你選擇逃跑……失去 1 燈火。`, 'danger');
+    addLog(t('你選擇逃跑……失去 1 燈火。'), 'danger');
     setPhase('fleeing');
     setTimeout(() => onClose(), 800);
   };
@@ -141,10 +144,10 @@ export default function ConfrontationModal({ open, onClose }: Props) {
                   background: 'linear-gradient(90deg, transparent, rgba(181,56,44,0.6) 20%, rgba(181,56,44,0.8) 50%, rgba(181,56,44,0.6) 80%, transparent)',
                   textShadow: '0 0 20px rgba(255,80,60,0.8)',
                 }}>
-                【對峙】
+                {t('【對峙】')}
               </div>
               <div className="text-[#C84030] font-serif text-sm tracking-widest mt-1 opacity-80">
-                {chaserName}正在逼近
+                {t(chaserName)}{t('正在逼近')}
               </div>
             </motion.div>
 
@@ -162,11 +165,11 @@ export default function ConfrontationModal({ open, onClose }: Props) {
                 style={{ background: 'rgba(181,56,44,0.08)' }}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-[#5A3A18]/60 text-[10px] tracking-widest mb-0.5">追逐者</div>
-                    <div className="font-serif font-bold text-xl text-[#B5382C]">{chaserName}</div>
+                    <div className="text-[#5A3A18]/60 text-[10px] tracking-widest mb-0.5">{t('追逐者')}</div>
+                    <div className="font-serif font-bold text-xl text-[#B5382C]">{t(chaserName)}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-[#5A3A18]/60 text-[10px] tracking-widest mb-0.5">威脅值</div>
+                    <div className="text-[#5A3A18]/60 text-[10px] tracking-widest mb-0.5">{t('威脅值')}</div>
                     <div className="flex items-center gap-1 justify-end">
                       <div className="font-serif font-black text-2xl text-[#B5382C]">{chaserThreat}</div>
                     </div>
@@ -174,7 +177,7 @@ export default function ConfrontationModal({ open, onClose }: Props) {
                 </div>
                 {tagInteraction && (
                   <div className="mt-2 text-[10px] text-[#5A3A18]/60 font-serif italic">
-                    {tagInteraction}
+                    {t(tagInteraction)}
                   </div>
                 )}
               </div>
@@ -182,7 +185,7 @@ export default function ConfrontationModal({ open, onClose }: Props) {
               {/* Card selection area */}
               <div className="px-6 py-4">
                 <div className="text-[#5A3A18]/70 text-xs font-serif tracking-widest mb-3">
-                  選擇出牌迎戰——
+                  {t('選擇出牌迎戰——')}
                 </div>
 
                 {/* Hand cards — scroll horizontally */}
@@ -222,13 +225,13 @@ export default function ConfrontationModal({ open, onClose }: Props) {
                             {c.number}
                           </div>
                           <div className="font-serif text-[10px] text-[#1A1714] leading-tight font-bold">
-                            {c.name}
+                            {t(c.name)}
                           </div>
                           {/* Win/lose indicator */}
                           <div className={`text-[9px] mt-0.5 font-bold ${
                             wouldWin ? 'text-[#5BA87A]' : c.number === chaserThreat ? 'text-[#C8A840]' : 'text-[#D04030]'
                           }`}>
-                            {wouldWin ? '⬆ 數字勝' : c.number === chaserThreat ? '= 平' : '⬇ 數字敗'}
+                            {wouldWin ? '⬆ ' + t('數字勝') : c.number === chaserThreat ? '= ' + t('平') : '⬇ ' + t('數字敗')}
                           </div>
                         </div>
                       </motion.div>
@@ -237,7 +240,7 @@ export default function ConfrontationModal({ open, onClose }: Props) {
 
                   {(player?.handCardIds.length ?? 0) === 0 && (
                     <div className="text-[#5A3A18]/50 text-sm font-serif w-full text-center py-4">
-                      手牌已空
+                      {t('手牌已空')}
                     </div>
                   )}
                 </div>
@@ -254,15 +257,15 @@ export default function ConfrontationModal({ open, onClose }: Props) {
                       <div className="mt-4 px-4 py-3 rounded"
                         style={{ background: 'rgba(60,36,16,0.07)', border: '1px solid rgba(60,36,16,0.12)' }}>
                         <div className="flex justify-between text-sm font-serif mb-1">
-                          <span className="text-[#5A3A18]/65">數字對比</span>
+                          <span className="text-[#5A3A18]/65">{t('數字對比')}</span>
                           <span className="font-bold" style={{
-                            color: cardVsThreat === '勝' ? '#5BA87A' : cardVsThreat === '平' ? '#C8A840' : '#D04030'
+                            color: cardVsThreat === t('勝') ? '#5BA87A' : cardVsThreat === t('平') ? '#C8A840' : '#D04030'
                           }}>
                             {card.number} vs {chaserThreat} — {cardVsThreat}
                           </span>
                         </div>
                         <div className="flex justify-between text-sm font-serif mb-1">
-                          <span className="text-[#5A3A18]/65">基礎成功率</span>
+                          <span className="text-[#5A3A18]/65">{t('基礎成功率')}</span>
                           <span className="text-[#2A1A0E] font-bold">
                             {card.number > chaserThreat ? '70%' : card.number === chaserThreat ? '50%' : '30%'}
                           </span>
@@ -276,19 +279,19 @@ export default function ConfrontationModal({ open, onClose }: Props) {
                             <>
                               {tagBonus && (
                                 <div className="flex justify-between text-sm font-serif mb-1">
-                                  <span className="text-[#5BA87A]/80">Tag 加成（弱點）</span>
+                                  <span className="text-[#5BA87A]/80">{t('Tag 加成（弱點）')}</span>
                                   <span className="text-[#5BA87A] font-bold">+15%</span>
                                 </div>
                               )}
                               {tagPenalty && (
                                 <div className="flex justify-between text-sm font-serif mb-1">
-                                  <span className="text-[#D04030]/80">Tag 減成（恐懼）</span>
+                                  <span className="text-[#D04030]/80">{t('Tag 減成（恐懼）')}</span>
                                   <span className="text-[#D04030] font-bold">-15%</span>
                                 </div>
                               )}
                               {charBonus && (
                                 <div className="flex justify-between text-sm font-serif mb-1">
-                                  <span className="text-[#7BC47B]/80">怪力童天賦</span>
+                                  <span className="text-[#7BC47B]/80">{t('怪力童天賦')}</span>
                                   <span className="text-[#7BC47B] font-bold">+20%</span>
                                 </div>
                               )}
@@ -296,7 +299,7 @@ export default function ConfrontationModal({ open, onClose }: Props) {
                           );
                         })()}
                         <div className="border-t border-[rgba(60,36,16,0.12)] mt-1.5 pt-1.5 flex justify-between font-serif font-bold">
-                          <span className="text-[#2A1A0E]">最終成功率</span>
+                          <span className="text-[#2A1A0E]">{t('最終成功率')}</span>
                           <span className="text-lg" style={{ color: rate >= 70 ? '#5BA87A' : rate >= 50 ? '#C8A840' : '#D04030' }}>
                             {rate}%
                           </span>
@@ -317,14 +320,14 @@ export default function ConfrontationModal({ open, onClose }: Props) {
                       disabled={!selectedCard}
                       data-testid="btn-confront"
                     >
-                      對峙！
+                      {t('對峙！')}
                     </motion.button>
                     <button
                       className="btn-wood px-5 py-3 text-sm"
                       onClick={handleFlee}
                       data-testid="btn-flee"
                     >
-                      逃跑
+                      {t('逃跑')}
                     </button>
                   </div>
                 ) : (
@@ -334,9 +337,9 @@ export default function ConfrontationModal({ open, onClose }: Props) {
                       transition={{ duration: 0.8 }}
                       className="font-serif text-2xl text-[#D04030] tracking-widest py-4"
                     >
-                      逃跑……
+                      {t('逃跑……')}
                     </motion.div>
-                    <div className="text-[#907060]/60 text-xs font-serif">失去 1 燈火</div>
+                    <div className="text-[#907060]/60 text-xs font-serif">{t('失去 1 燈火')}</div>
                   </div>
                 )}
               </div>

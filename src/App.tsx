@@ -3,6 +3,7 @@ import { useGameStore } from "@/store/useGameStore";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { motion, AnimatePresence } from "framer-motion";
+import { I18nProvider, useI18n } from "@/lib/i18n";
 import DiceModal from "@/components/game/DiceModal";
 import TabooModal from "@/components/game/TabooModal";
 import InvestigationModal from "@/components/game/InvestigationModal";
@@ -17,7 +18,20 @@ const VictoryPage = lazy(() => import("@/pages/VictoryPage"));
 const DefeatPage = lazy(() => import("@/pages/DefeatPage"));
 
 export default function App() {
+  return (
+    <div className="dark min-h-screen w-full bg-background text-foreground font-sans overflow-hidden">
+      <TooltipProvider>
+        <I18nProvider>
+          <AppContent />
+        </I18nProvider>
+      </TooltipProvider>
+    </div>
+  );
+}
+
+function AppContent() {
   const { phase, showDiceModal, pendingTabooCheck, investigationResult, bondReward, showNightTransition, dismissNightTransition } = useGameStore();
+  const { t } = useI18n();
 
   useEffect(() => {
     if (showNightTransition) {
@@ -29,9 +43,10 @@ export default function App() {
   return (
     <div className="dark min-h-screen w-full bg-background text-foreground font-sans overflow-hidden">
       <TooltipProvider>
+        <I18nProvider>
         <Suspense fallback={
           <div className="w-full h-screen flex items-center justify-center bg-[#1A1410]">
-            <div className="text-[#907060] font-serif text-sm tracking-widest animate-pulse">載入中……</div>
+            <div className="text-[#907060] font-serif text-sm tracking-widest animate-pulse">{t('載入中……')}</div>
           </div>
         }>
           {phase === 'menu' && <MenuPage />}
@@ -62,13 +77,14 @@ export default function App() {
                 className="font-serif font-black text-5xl tracking-[0.5em] text-[#C84030]"
                 style={{ textShadow: '0 0 40px rgba(200,64,48,0.5)' }}
               >
-                入夜了
+                {t('入夜了')}
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
         <Toaster />
-      </TooltipProvider>
-    </div>
-  );
+      </I18nProvider>
+    </TooltipProvider>
+  </div>
+);
 }

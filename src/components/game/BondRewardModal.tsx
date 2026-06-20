@@ -1,5 +1,6 @@
 import { useGameStore } from '@/store/useGameStore';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useI18n } from '@/lib/i18n';
 import WashiTape from '@/components/art/WashiTape';
 import { IconStar, IconSparkle } from '@/components/art/GameIcons';
 
@@ -11,6 +12,7 @@ const LEVEL_CONFIG = {
 
 export default function BondRewardModal() {
   const { bondReward, dismissBondReward } = useGameStore();
+  const { t } = useI18n();
   if (!bondReward) return null;
 
   const cfg = LEVEL_CONFIG[bondReward.level as keyof typeof LEVEL_CONFIG] ?? LEVEL_CONFIG[2];
@@ -52,39 +54,39 @@ export default function BondRewardModal() {
 
             {/* Title */}
             <div className="font-serif font-bold text-lg" style={{ color: cfg.color }}>
-              {cfg.title}
-            </div>
-            <div className="font-serif text-[10px] text-[#5A3A18]/50 tracking-wider mt-0.5 mb-3">
-              {cfg.subtitle}
-            </div>
+               {t(cfg.title)}
+             </div>
+             <div className="font-serif text-[10px] text-[#5A3A18]/50 tracking-wider mt-0.5 mb-3">
+               {t(cfg.subtitle)}
+             </div>
 
             {/* Villager */}
             <div className="font-serif text-sm text-[#2A1A0E] font-bold mb-2">
-              {bondReward.villagerName}
-            </div>
-
-            {/* Message */}
-            <div className="font-serif text-[11px] text-[#907060] text-center leading-relaxed mb-3 px-2">
-              {bondReward.message}
-            </div>
-
-            {/* Reward item */}
-            {bondReward.reward && (
-              <div className="w-full text-center py-2.5 mb-3 rounded-sm"
-                style={{ background: 'rgba(91,168,122,0.1)', border: '1px solid rgba(91,168,122,0.2)' }}>
-                <div className="font-serif text-[10px] text-[#5BA87A]/60 tracking-wider mb-1">獲得道具</div>
-                <div className="font-serif font-bold text-sm text-[#5BA87A]">〖{bondReward.reward}〗</div>
-              </div>
-            )}
-
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              className="btn-wood px-10 py-2.5 text-sm tracking-widest w-full"
-              onClick={dismissBondReward}
-            >
-              確認
-            </motion.button>
+               {t(bondReward.villagerName)}
+             </div>
+ 
+             {/* Message */}
+             <div className="font-serif text-[11px] text-[#907060] text-center leading-relaxed mb-3 px-2">
+               {t(bondReward.message)}
+             </div>
+ 
+             {/* Reward item */}
+             {bondReward.reward && (
+               <div className="w-full text-center py-2.5 mb-3 rounded-sm"
+                 style={{ background: 'rgba(91,168,122,0.1)', border: '1px solid rgba(91,168,122,0.2)' }}>
+                 <div className="font-serif text-[10px] text-[#5BA87A]/60 tracking-wider mb-1">{t('獲得道具')}</div>
+                 <div className="font-serif font-bold text-sm text-[#5BA87A]">〖{t(bondReward.reward)}〗</div>
+               </div>
+             )}
+ 
+             <motion.button
+               whileHover={{ scale: 1.03 }}
+               whileTap={{ scale: 0.97 }}
+               className="btn-wood px-10 py-2.5 text-sm tracking-widest w-full"
+               onClick={dismissBondReward}
+             >
+               {t('確認')}
+             </motion.button>
           </div>
         </motion.div>
       </motion.div>

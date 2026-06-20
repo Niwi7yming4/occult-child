@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { VillagerPortrait } from '@/components/art/VillagerPortrait';
 import { IconRiceball, IconHerb, IconMedicine, IconBell, IconCandle, IconMap, IconCompass, IconMirror, IconPackage, IconShrine } from '@/components/art/GameIcons';
 import WashiTape from '@/components/art/WashiTape';
+import { useI18n } from '@/lib/i18n';
 
 const ITEM_ICONS: Record<string, React.ReactNode> = {
   riceball: <IconRiceball />, onigiri: <IconRiceball />, herb: <IconHerb />, medicine: <IconMedicine />, charm: <IconShrine />,
@@ -22,6 +23,7 @@ export default function ShopModal() {
   const { showShopModal, closeShop, buyItem, players, localPlayerId, currentDimensions, addLog } = useGameStore();
   const player = players.find(p => p.id === localPlayerId);
   const [lastBought, setLastBought] = useState<string | null>(null);
+  const { t } = useI18n();
 
   const shopResult = useMemo(() => {
     if (!currentDimensions || !player) return null;
@@ -67,17 +69,17 @@ export default function ShopModal() {
                   <VillagerPortrait villagerId="granny" size={52} />
                 </div>
                 <div>
-                  <div className="font-serif font-bold text-lg text-[#1A1714]">萬雜屋</div>
+                  <div className="font-serif font-bold text-lg text-[#1A1714]">{t('萬雜屋')}</div>
                   <div className="text-[#907060]/70 text-[11px] font-serif mt-0.5 leading-relaxed">
-                    「哎呀，歡迎歡迎……看看有什麼需要的？」
+                    {t('「哎呀，歡迎歡迎……看看有什麼需要的？」')}
                   </div>
                   <div className="flex items-center gap-1.5 mt-2">
                     <span className="text-[#C8A040] text-sm">◈</span>
                     <span className="text-[#907060]/80 text-xs font-serif tracking-wider">
-                      持有 {player?.coins ?? 0} 枚古錢
+                      {t('持有')} {player?.coins ?? 0} {t('枚古錢')}
                     </span>
                     <span className="text-[#907060]/50 text-[10px]">
-                      （{shopResult.atmosphereName}·×{shopResult.priceMultiplier}）
+                      （{t(shopResult.atmosphereName)}·×{shopResult.priceMultiplier}）
                     </span>
                   </div>
                 </div>
@@ -88,7 +90,7 @@ export default function ShopModal() {
             <div className="px-6 py-4 space-y-2 max-h-[50vh] overflow-y-auto custom-scroll">
               {shopResult.offers.length === 0 && (
                 <div className="text-center py-8 text-[#907060]/50 font-serif text-sm">
-                  今天沒有進貨……
+                  {t('今天沒有進貨……')}
                 </div>
               )}
               {shopResult.offers.map(offer => {
@@ -129,10 +131,10 @@ export default function ShopModal() {
                       </div>
                       <div className="min-w-0">
                         <div className="font-serif font-bold text-sm text-[#2A1A0E] truncate">
-                          {offer.item.name}
+                          {t(offer.item.name)}
                         </div>
                         <div className="text-[10px] text-[#907060]/70 mt-0.5 leading-relaxed line-clamp-2">
-                          {offer.item.description}
+                          {t(offer.item.description)}
                         </div>
                         {justBought && (
                           <motion.div
@@ -140,7 +142,7 @@ export default function ShopModal() {
                             animate={{ opacity: 1, y: 0 }}
                             className="text-[10px] text-[#5BA87A] font-serif mt-1"
                           >
-                            已購入
+                            {t('已購入')}
                           </motion.div>
                         )}
                       </div>
@@ -150,7 +152,7 @@ export default function ShopModal() {
                       whileTap={offer.canAfford && !justBought ? { scale: 0.95 } : {}}
                       onClick={() => {
                         if (!offer.canAfford) {
-                          addLog(`婆婆搖頭：『錢不夠啊……需要 ${offer.effectivePrice} 枚。』`, 'warning');
+                          addLog(t('婆婆搖頭：『錢不夠啊……需要 ') + offer.effectivePrice + t(' 枚。』'), 'warning');
                           return;
                         }
                         if (justBought) return;
@@ -166,7 +168,7 @@ export default function ShopModal() {
                       }`}
                       style={!offer.canAfford || justBought ? { background: 'rgba(60,36,16,0.08)', color: '#907060' } : {}}
                     >
-                      {justBought ? '✓' : `${offer.effectivePrice}金`}
+                      {justBought ? '✓' : `${offer.effectivePrice}${t('金')}`}
                     </motion.button>
                   </motion.div>
                 );
@@ -176,7 +178,7 @@ export default function ShopModal() {
             {/* Footer */}
             <div className="px-6 py-3 border-t border-[rgba(60,36,16,0.12)] flex justify-between items-center">
               <div className="text-[#907060]/40 text-[10px] font-serif">
-                下次進貨隨機更新
+                {t('下次進貨隨機更新')}
               </div>
               <motion.button
                 whileHover={{ scale: 1.03 }}
@@ -184,7 +186,7 @@ export default function ShopModal() {
                 className="btn-wood px-6 py-2 text-sm tracking-wider"
                 onClick={closeShop}
               >
-                離店
+                {t('離店')}
               </motion.button>
             </div>
           </motion.div>

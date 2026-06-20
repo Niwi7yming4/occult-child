@@ -11,6 +11,7 @@ import AmbientParticles from '@/components/art/AmbientParticles';
 import ShopModal from '@/components/game/ShopModal';
 import { GAME_ICONS, IconWarning, IconCoin, IconJizoStatue, IconSparkle, IconStar } from '@/components/art/GameIcons';
 import HidePanel from '@/components/game/HidePanel';
+import { useI18n } from '@/lib/i18n';
 
 const TIME_CONFIG = {
   afternoon: { label: '午後',  icon: 'Sun',  sky: 'linear-gradient(180deg, #E89848 0%, #C87830 100%)', desc: '天色晴朗' },
@@ -34,6 +35,7 @@ export default function ExplorePage() {
   const timeCfg = TIME_CONFIG[timeOfDay] || TIME_CONFIG.afternoon;
   const [villagerDialog, setVillagerDialog] = useState<VillagerDialogData>(null);
   const [shakeAp, setShakeAp] = useState(false);
+  const { t } = useI18n();
 
   const handleMovePlayer = (tileId: number) => {
     if (apRemaining <= 0) { setShakeAp(true); setTimeout(() => setShakeAp(false), 600); return; }
@@ -70,8 +72,8 @@ export default function ExplorePage() {
             })()}
           </span>
           <div>
-            <span className="font-serif font-bold text-[#F0E8D8] tracking-widest">{timeCfg.label}</span>
-            <span className="text-[#E0D0B0]/70 text-xs ml-2">{timeCfg.desc}</span>
+            <span className="font-serif font-bold text-[#F0E8D8] tracking-widest">{t(timeCfg.label)}</span>
+            <span className="text-[#E0D0B0]/70 text-xs ml-2">{t(timeCfg.desc)}</span>
           </div>
         </div>
         {isDangerous && (
@@ -81,12 +83,12 @@ export default function ExplorePage() {
             className="text-[#F0E0D0] font-serif text-sm tracking-widest px-3 py-1 border border-[#E0C0A0]/40 rounded"
             style={{ background: 'rgba(0,0,0,0.25)' }}
           >
-            <IconWarning size={14} /> {currentDimensions?.chaser.name}正在遊蕩
+            <IconWarning size={14} /> {currentDimensions?.chaser.name}{t('正在遊蕩')}
           </motion.div>
         )}
         {/* AP dots — top right */}
-        <div className="flex items-center gap-2" title="行動力：每階段可使用次數">
-          <span className="text-[#E0D0B0]/80 text-xs font-serif">行動力</span>
+        <div className="flex items-center gap-2" title={t('行動力：每階段可使用次數')}>
+          <span className="text-[#E0D0B0]/80 text-xs font-serif">{t('行動力')}</span>
           <motion.div className="flex gap-1.5" animate={shakeAp ? { x: [-4, 4, -4, 4, 0] } : {}} transition={{ duration: 0.35 }}>
             {Array.from({ length: apTotal }).map((_, i) => (
               <div key={i} className={`ink-dot ${i < apRemaining ? 'filled' : ''}`} />
@@ -109,8 +111,8 @@ export default function ExplorePage() {
                   <CharacterPortrait characterId={character.id} size={44} />
                 </div>
                 <div>
-                  <div className="font-serif font-bold text-sm" style={{ color: character.color }}>{character.name}</div>
-                  <div className="text-[#C8B098] text-[10px]">{character.role}</div>
+                  <div className="font-serif font-bold text-sm" style={{ color: character.color }}>{t(character.name)}</div>
+                  <div className="text-[#C8B098] text-[10px]">{t(character.role)}</div>
                 </div>
               </div>
             )}
@@ -119,7 +121,7 @@ export default function ExplorePage() {
           {/* HP */}
           <div className="px-5 py-3 border-b border-[rgba(200,164,106,0.1)]">
             <div className="flex justify-between text-[11px] mb-1.5">
-              <span className="text-[#C8B098]">體力</span>
+              <span className="text-[#C8B098]">{t('體力')}</span>
               <span className="text-[#D06050] font-bold">{player?.hp}/{player?.maxHp}</span>
             </div>
             <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.4)' }}>
@@ -136,15 +138,15 @@ export default function ExplorePage() {
           <div className="px-5 py-3 border-b border-[rgba(200,164,106,0.1)] flex items-center gap-2">
             <IconCoin size={20} />
             <span className="font-serif text-[#C8A46A] font-bold">{player?.coins || 0}</span>
-            <span className="text-[#B09880] text-[11px]">枚古錢</span>
+            <span className="text-[#B09880] text-[11px]">{t('枚古錢')}</span>
           </div>
 
           {/* Inventory */}
           {inventory.length > 0 && (
             <div className="px-5 py-3 border-b border-[rgba(200,164,106,0.1)]">
               <div className="flex justify-between items-center mb-1.5">
-                <div className="text-[#C8B098] text-[10px]">持有道具</div>
-                <div className="text-[#B09880] text-[9px]">{inventory.length}件</div>
+                <div className="text-[#C8B098] text-[10px]">{t('持有道具')}</div>
+                <div className="text-[#B09880] text-[9px]">{t(`${inventory.length}件`)}</div>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {inventory.map(itemId => {
@@ -156,7 +158,7 @@ export default function ExplorePage() {
                       style={{ background: 'rgba(200,164,106,0.1)', color: '#C8A46A', border: '1px solid rgba(200,164,106,0.2)' }}
                       onClick={() => useItem(itemId)}
                     >
-                      {item.name}
+                      {t(item.name)}
                     </span>
                   );
                 })}
@@ -167,7 +169,7 @@ export default function ExplorePage() {
           {/* Relics */}
           {(player?.ownedRelicIds?.length ?? 0) > 0 && (
             <div className="px-5 py-3 border-b border-[rgba(200,164,106,0.1)]">
-              <div className="text-[#C8B098] text-[10px] mb-1.5">持有奇物</div>
+              <div className="text-[#C8B098] text-[10px] mb-1.5">{t('持有奇物')}</div>
               <div className="flex flex-wrap gap-1">
                 {player?.ownedRelicIds.map(r => (
                   <span key={r} className="text-[10px] px-1.5 py-0.5 rounded font-serif"
@@ -181,16 +183,16 @@ export default function ExplorePage() {
 
           {/* Taboo warning */}
           <div className="px-5 py-3 border-b border-[rgba(200,164,106,0.1)]">
-            <div className="text-[#C8B098] text-[10px] mb-1.5">禁忌</div>
+            <div className="text-[#C8B098] text-[10px] mb-1.5">{t('禁忌')}</div>
             <div className="font-serif text-[#D06050] text-xs font-bold mb-1">
-              {currentDimensions?.taboo.name}
+              {t(currentDimensions?.taboo.name)}
             </div>
             <div className="text-[11px] text-[#B09880] leading-relaxed">
-              {currentDimensions?.taboo.penalty}
+              {t(currentDimensions?.taboo.penalty)}
             </div>
             {tabooViolations > 0 && (
               <div className="mt-1.5 flex items-center gap-1">
-                <span className="text-[#D06050] text-[10px]">失衡</span>
+                <span className="text-[#D06050] text-[10px]">{t('失衡')}</span>
                 <div className="flex gap-0.5">
                   {[1,2,3].map(n => (
                     <div key={n} className={`w-2.5 h-2.5 rounded-full border ${n <= tabooViolations ? 'bg-[#D06050] border-[#D06050]' : 'border-[#907060]/50'}`} />
@@ -202,7 +204,7 @@ export default function ExplorePage() {
 
           {/* Dimension summary */}
           <div className="px-5 py-3 flex-1">
-            <div className="text-[#C8B098] text-[10px] mb-2">本局概況</div>
+            <div className="text-[#C8B098] text-[10px] mb-2">{t('本局概況')}</div>
             <div className="space-y-1.5">
               {[
                 { label: '追逐者', val: currentDimensions?.chaser.name, col: '#C84030' },
@@ -210,7 +212,7 @@ export default function ExplorePage() {
                 { label: '破局', val: currentDimensions?.victory.name, col: '#5BA87A' },
               ].map(item => (
                 <div key={item.label} className="flex items-center gap-2">
-                  <span className="text-[#B09880] text-[10px] w-12 shrink-0">{item.label}</span>
+                  <span className="text-[#B09880] text-[10px] w-12 shrink-0">{t(item.label)}</span>
                   <span className="font-serif text-[11px] font-bold" style={{ color: item.col }}>{item.val}</span>
                 </div>
               ))}
@@ -227,7 +229,7 @@ export default function ExplorePage() {
                 entry.type === 'system'  ? 'text-[#9B72C8]/80' :
                 'text-[#B09880]'
               }`}>
-                {entry.text}
+                {t(entry.text)}
               </div>
             ))}
           </div>
@@ -268,7 +270,7 @@ export default function ExplorePage() {
                       <MapTileArt tile={tile} size={76} dimmed={!isCurrent && !isConnected} />
                       {!tile.isHidden && (
                         <div className="font-serif text-[#C8A46A] text-[10px] font-bold leading-tight mt-1 px-2">
-                          {tile.label}
+                          {t(tile.label)}
                         </div>
                       )}
 
@@ -298,7 +300,7 @@ export default function ExplorePage() {
                         onClick={e => { e.stopPropagation(); investigateTile(tile.id); }}
                         data-testid={`investigate-${tile.id}`}
                       >
-                        調查
+                        {t('調查')}
                       </button>
                     )}
                   </motion.div>
@@ -311,25 +313,25 @@ export default function ExplorePage() {
           <div className="shrink-0 px-6 py-3 border-t border-[rgba(200,164,106,0.15)]"
             style={{ background: 'rgba(20,12,6,0.9)' }}>
             <div className="flex items-center gap-3">
-              <span className="text-[#C8B098] text-[11px] font-serif shrink-0">動作：</span>
-              <button className="btn-wood px-4 py-2 text-sm" onClick={() => restAtShrine()}
-                style={{ opacity: 0.7 }}>
-                休息
+              <span className="text-[#C8B098] text-[11px] font-serif shrink-0">{t('動作：')}</span>
+                <button className="btn-wood px-4 py-2 text-sm" onClick={() => restAtShrine()}
+                  style={{ opacity: 0.7 }}>
+                {t('休息')}
               </button>
               {isHiding ? (
                 <button className="btn-wood px-4 py-2 text-sm" onClick={stopHiding}
                   style={{ opacity: 0.7, border: '1px solid #C8A46A' }}>
-                  停止躲藏
+                  {t('停止躲藏')}
                 </button>
               ) : (
                 <button className="btn-wood px-4 py-2 text-sm" onClick={hide}
                   style={{ opacity: 0.7 }}>
-                  躲藏
+                  {t('躲藏')}
                 </button>
               )}
               <button className="btn-wood px-4 py-2 text-sm" onClick={visitShop}
                 style={{ opacity: 0.7 }}>
-                商店
+                {t('商店')}
               </button>
               <div className="flex-1" />
               <motion.button
@@ -339,7 +341,7 @@ export default function ExplorePage() {
                 onClick={proceedToBattle}
                 data-testid="btn-proceed-battle"
               >
-                入夜了
+                {t('入夜了')}
               </motion.button>
             </div>
           </div>
@@ -349,7 +351,7 @@ export default function ExplorePage() {
         <div className="w-56 shrink-0 texture-wood flex flex-col border-l border-[rgba(200,164,106,0.15)]">
           <div className="px-4 py-3 border-b border-[rgba(200,164,106,0.15)]"
             style={{ background: 'rgba(0,0,0,0.3)' }}>
-            <div className="font-serif text-[#C8A46A] text-sm tracking-widest">村民羈絆</div>
+            <div className="font-serif text-[#C8A46A] text-sm tracking-widest">{t('村民羈絆')}</div>
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scroll p-3 space-y-2">
@@ -368,7 +370,7 @@ export default function ExplorePage() {
                   data-testid={`villager-${v.id}`}
                 >
                   <div className="flex justify-between items-center mb-1">
-                    <span className="font-serif font-bold text-[#E0D0B8] text-sm">{v.name}</span>
+                    <span className="font-serif font-bold text-[#E0D0B8] text-sm">{t(v.name)}</span>
                     <div className="flex gap-0.5">
                       {[1,2,3,4].map(star => (
                         <span key={star}>
@@ -383,9 +385,9 @@ export default function ExplorePage() {
                       ))}
                     </div>
                   </div>
-                  <div className="text-[10px] text-[#B09880]">{v.appearance}</div>
+                  <div className="text-[10px] text-[#B09880]">{t(v.appearance)}</div>
                   {bond >= 3 && (
-                    <div className="mt-1 text-[9px] text-[#5BA87A]">可協助牌局</div>
+                    <div className="mt-1 text-[9px] text-[#5BA87A]">{t('可協助牌局')}</div>
                   )}
                 </motion.div>
               );
@@ -394,9 +396,9 @@ export default function ExplorePage() {
 
           {/* Map info */}
           <div className="px-4 py-3 border-t border-[rgba(200,164,106,0.12)]" style={{ background: 'rgba(0,0,0,0.2)' }}>
-            <div className="text-[#C8B098] text-[10px] mb-1">地圖</div>
-            <div className="font-serif text-[#C8A46A] text-xs">{currentDimensions?.map.name}</div>
-            <div className="text-[9px] text-[#907060]/50 mt-0.5">{currentDimensions?.map.feature}</div>
+            <div className="text-[#C8B098] text-[10px] mb-1">{t('地圖')}</div>
+            <div className="font-serif text-[#C8A46A] text-xs">{t(currentDimensions?.map.name)}</div>
+            <div className="text-[9px] text-[#907060]/50 mt-0.5">{t(currentDimensions?.map.feature)}</div>
           </div>
         </div>
       </div>
@@ -430,9 +432,9 @@ export default function ExplorePage() {
                   />
                 </div>
                 <div className="pb-2">
-                  <div className="font-serif font-bold text-lg text-[#1A1714]">{villagerDialog.name}</div>
+                  <div className="font-serif font-bold text-lg text-[#1A1714]">{t(villagerDialog.name)}</div>
                   <div className="text-[#907060]/60 text-[10px] mb-1.5">
-                    {VILLAGERS.find(v => v.id === villagerDialog.id)?.appearance}
+                    {t(VILLAGERS.find(v => v.id === villagerDialog.id)?.appearance)}
                   </div>
                   <div className="flex gap-0.5">
                     {[1,2,3,4].map(star => (
@@ -454,17 +456,17 @@ export default function ExplorePage() {
               <div className="px-6 py-4">
                 <p className="text-[#2A1A0E]/80 font-serif text-sm leading-relaxed italic mb-4">
                   {villagerDialog.bond <= 1
-                    ? '「……」'
+                    ? t('「……」')
                     : villagerDialog.bond === 2
-                    ? '「最近村子裡不太對勁，你要小心。」'
+                    ? t('「最近村子裡不太對勁，你要小心。」')
                     : villagerDialog.bond === 3
-                    ? `「其實……${currentDimensions?.chaser.name}的事，我知道一些。」`
-                    : '「我信任你。我告訴你一個秘密……」'
+                    ? t(`「其實……${currentDimensions?.chaser.name}的事，我知道一些。」`)
+                    : t('「我信任你。我告訴你一個秘密……」')
                   }
                 </p>
 
                 <div className="text-[10px] text-[#A09080]/70 mb-4 pl-3 border-l-2 border-[rgba(200,164,106,0.3)]">
-                  羈絆提升至 Lv.{villagerDialog.bond}
+                  {t('羈絆提升至')} Lv.{villagerDialog.bond}
                 </div>
 
                 {/* Options */}
@@ -473,7 +475,7 @@ export default function ExplorePage() {
                     className="w-full text-left px-4 py-2 font-serif text-sm text-[#2A1A0E]/75 hover:text-[#2A1A0E] hover:bg-[rgba(200,164,106,0.1)] rounded transition-colors"
                     onClick={() => setVillagerDialog(null)}
                   >
-                    ＞ 繼續
+                    ＞ {t('繼續')}
                   </button>
                   <button
                     className="w-full text-left px-4 py-2 font-serif text-sm text-[#2A1A0E]/75 hover:text-[#2A1A0E] hover:bg-[rgba(200,164,106,0.1)] rounded transition-colors"
@@ -483,7 +485,7 @@ export default function ExplorePage() {
                       setVillagerDialog(null);
                     }}
                   >
-                    ＞ 問更多
+                    ＞ {t('問更多')}
                   </button>
                   <button
                     className="w-full text-left px-4 py-2 font-serif text-sm text-[#2A1A0E]/75 hover:text-[#2A1A0E] hover:bg-[rgba(200,164,106,0.1)] rounded transition-colors"
@@ -491,17 +493,17 @@ export default function ExplorePage() {
                       const { useItem, inventory } = useGameStore.getState();
                       const gift = inventory.find(id => { const i = getItemById(id); return i && i.exploreOnly; });
                       if (gift) { useItem(gift); talkToVillager(villagerDialog.id); }
-                      else { addLog('你沒有可以送出的物品。', 'warning'); }
+                      else { addLog(t('你沒有可以送出的物品。'), 'warning'); }
                       setVillagerDialog(null);
                     }}
                   >
-                    ＞ 送禮
+                    ＞ {t('送禮')}
                   </button>
                   <button
                     className="w-full text-left px-4 py-2 font-serif text-sm text-[#2A1A0E]/75 hover:text-[#2A1A0E] hover:bg-[rgba(200,164,106,0.1)] rounded transition-colors"
                     onClick={() => setVillagerDialog(null)}
                   >
-                    ＞ 告辭
+                    ＞ {t('告辭')}
                   </button>
                 </div>
               </div>

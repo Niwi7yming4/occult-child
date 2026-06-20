@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useGameStore } from '@/store/useGameStore';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useI18n } from '@/lib/i18n';
 
 const NARRATIONS = [
   { key: 'chaser',     prefix: '今晚，村子的主人是……', color: '#C84030', borderColor: 'rgba(200,64,48,0.5)' },
@@ -28,6 +29,7 @@ function getDimValue(dims: ReturnType<typeof useGameStore.getState>['currentDime
 
 export default function SetupPage() {
   const { currentDimensions, proceedToExplore } = useGameStore();
+  const { t } = useI18n();
   const [revealed, setRevealed] = useState(0);
   const [canProceed, setCanProceed] = useState(false);
 
@@ -58,7 +60,7 @@ export default function SetupPage() {
           transition={{ duration: 0.8 }}
           className="text-center mb-8"
         >
-          <div className="font-serif text-[#907060]/60 text-xs tracking-[0.5em] mb-2">今夜的命運籤</div>
+           <div className="font-serif text-[#907060]/60 text-xs tracking-[0.5em] mb-2">{t('今夜的命運籤')}</div>
           <div className="w-32 h-px mx-auto" style={{ background: 'linear-gradient(90deg, transparent, rgba(200,164,106,0.5), transparent)' }} />
         </motion.div>
 
@@ -80,7 +82,7 @@ export default function SetupPage() {
             {/* Decorative seal */}
             <div className="flex justify-center mb-6">
               <div className="w-16 h-16 border-2 border-[#B5382C]/60 rounded-full flex items-center justify-center">
-                <div className="text-[#B5382C]/70 font-serif text-lg leading-tight text-center">命<br/>運</div>
+                 <div className="text-[#B5382C]/70 font-serif text-lg leading-tight text-center">{t('命')}<br/>{t('運')}</div>
               </div>
             </div>
 
@@ -119,7 +121,7 @@ export default function SetupPage() {
                               transition={{ delay: 0.1 }}
                               className="text-[#5A4030]/65 text-[11px] font-serif tracking-wider mb-1"
                             >
-                              {narr.prefix}
+                               {t(narr.prefix)}
                             </motion.div>
 
                             {/* Name — ink reveal */}
@@ -130,7 +132,7 @@ export default function SetupPage() {
                               className="font-serif font-bold text-xl mb-1"
                               style={{ color: narr.color, textShadow: `0 0 12px ${narr.color}44` }}
                             >
-                              {val.name}
+                              {t(val.name)}
                             </motion.div>
 
                             {/* Effect text */}
@@ -140,7 +142,7 @@ export default function SetupPage() {
                               transition={{ delay: 0.45 }}
                               className="text-[12px] text-[#3A2A18]/65 leading-relaxed"
                             >
-                              {val.effect}
+                              {t(val.effect)}
                             </motion.div>
                           </div>
                         </div>
@@ -187,11 +189,11 @@ export default function SetupPage() {
                 onClick={proceedToExplore}
                 data-testid="btn-proceed-explore"
               >
-                進入黃昏村
+                  {t('進入黃昏村')}
               </motion.button>
               <p className="text-[#907060]/50 text-[10px] font-serif tracking-widest">
-                做好準備了嗎
-              </p>
+                 {t('做好準備了嗎')}
+               </p>
             </motion.div>
           )}
         </AnimatePresence>

@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CardArtwork } from '@/components/art/CardArtwork';
 import { GAME_ICONS, IconOgre, IconShrine, IconNoEntry, IconShield } from '@/components/art/GameIcons';
 import ConfrontationModal from '@/components/game/ConfrontationModal';
+import { useI18n } from '@/lib/i18n';
 
 const TAG_COLORS: Record<string, string> = {
   '守': '#5B90D8', '逃': '#5BA87A', '咒': '#9B72C8',
@@ -31,6 +32,7 @@ export default function BattlePage() {
 
   const player = players.find(p => p.id === localPlayerId);
   const character = CHARACTERS.find(c => c.id === player?.characterId);
+  const { t } = useI18n();
 
   const RING_RADIUS = 210;
   const RING_CENTER = 260;
@@ -96,8 +98,8 @@ export default function BattlePage() {
         style={{ background: 'rgba(16,10,6,0.92)', borderBottom: '1px solid rgba(200,164,106,0.12)' }}>
 
         {/* Lanterns (candles) — 生命/燈火值 */}
-        <div className="flex items-center gap-1.5 mr-2" title="燈火：剩餘回合數，歸零則敗">
-          <span className="text-[#C8B098] text-[9px] font-serif mr-0.5 tracking-wider">燈火</span>
+        <div className="flex items-center gap-1.5 mr-2" title={t('燈火：剩餘回合數，歸零則敗')}>
+          <span className="text-[#C8B098] text-[9px] font-serif mr-0.5 tracking-wider">{t('燈火')}</span>
           {Array.from({ length: maxLanterns }).map((_, i) => (
             <motion.div
               key={i}
@@ -126,7 +128,7 @@ export default function BattlePage() {
         {/* Victory progress — center */}
         <div className="flex-1 flex flex-col items-center gap-1">
           <div className="text-[10px] text-[#907060]/70 font-serif tracking-widest">
-            {currentDimensions?.victory.name}
+            {t(currentDimensions?.victory.name)}
           </div>
           <div className="flex gap-1.5">
             {Array.from({ length: victoryTarget }).map((_, i) => (
@@ -144,16 +146,16 @@ export default function BattlePage() {
         {/* Right info */}
         <div className="flex items-center gap-4">
           <div className="text-[#C8B098] text-xs font-serif">
-            第 {turnNumber} 回合
+            {t('第')} {turnNumber} {t('回合')}
           </div>
           <div className="text-[10px] px-2 py-1 rounded font-serif"
             style={{ background: 'rgba(72,176,200,0.12)', color: '#48B0C8', border: '1px solid rgba(72,176,200,0.25)' }}>
-            {ENV_LABELS[environment] || environment}
+            {t(ENV_LABELS[environment]) || environment}
           </div>
           {/* Taboo imbalance */}
           {tabooViolations > 0 && (
             <div className="flex items-center gap-1">
-              <span className="text-[#D06050] text-[10px]">失衡</span>
+              <span className="text-[#D06050] text-[10px]">{t('失衡')}</span>
               <div className="flex gap-0.5">
                 {[1,2,3].map(n => (
                   <div key={n} className={`w-2 h-2 rounded-full ${n <= tabooViolations ? 'bg-[#D06050]' : 'bg-[#3A2018]'}`} />
@@ -170,7 +172,7 @@ export default function BattlePage() {
             disabled={divineCharges <= 0}
             data-testid="btn-divine"
           >
-            <IconShrine size={16} /> 神明 {divineCharges > 0 ? `×${divineCharges}` : '（已用）'}
+            <IconShrine size={16} /> {t('神明')} {divineCharges > 0 ? `×${divineCharges}` : t('（已用）')}
           </motion.button>
         </div>
       </div>
@@ -185,12 +187,12 @@ export default function BattlePage() {
           {/* Chaser */}
           <div className="px-4 py-4 border-b border-[rgba(200,164,106,0.1)]"
             style={{ background: chaserIsClose ? 'rgba(181,56,44,0.12)' : 'rgba(0,0,0,0.2)' }}>
-            <div className="text-[#C8B098] text-[10px] mb-1 tracking-widest">追逐者</div>
+            <div className="text-[#C8B098] text-[10px] mb-1 tracking-widest">{t('追逐者')}</div>
             <div className="font-serif font-bold text-lg text-[#D04030] mb-1">
-              {currentDimensions?.chaser.name}
+              {t(currentDimensions?.chaser.name)}
             </div>
             <div className="flex items-center gap-1 mb-2">
-              <span className="text-[#C8B098] text-[10px]">威脅</span>
+              <span className="text-[#C8B098] text-[10px]">{t('威脅')}</span>
               <div className="flex gap-0.5">
                 {Array.from({ length: Math.min(chaserThreat, 10) }).map((_, i) => (
                   <div key={i} className="w-2 h-2 rounded-full bg-[#D04030]/80" />
@@ -198,7 +200,7 @@ export default function BattlePage() {
               </div>
             </div>
             <div className="text-[11px] text-[#B09880] leading-relaxed line-clamp-3">
-              {currentDimensions?.chaser.tagInteraction}
+              {t(currentDimensions?.chaser.tagInteraction)}
             </div>
             {chaserIsClose && (
               <motion.div
@@ -206,31 +208,31 @@ export default function BattlePage() {
                 transition={{ repeat: Infinity, duration: 0.8 }}
                 className="mt-2 text-[#D04030] text-[10px] font-bold tracking-widest"
               >
-                ！逼近中（距離 {playerDist}）
+                {t('！逼近中（距離')} {playerDist}）
               </motion.div>
             )}
           </div>
 
           {/* Deity */}
           <div className="px-4 py-3 border-b border-[rgba(200,164,106,0.1)]">
-            <div className="text-[#C8B098] text-[10px] mb-1">在場神明</div>
-            <div className="font-serif font-bold text-sm text-[#D4A040]">{currentDimensions?.deity.name}</div>
+            <div className="text-[#C8B098] text-[10px] mb-1">{t('在場神明')}</div>
+            <div className="font-serif font-bold text-sm text-[#D4A040]">{t(currentDimensions?.deity.name)}</div>
             <div className="text-[11px] text-[#B09880] leading-relaxed mt-1">
-              {currentDimensions?.deity.phase2Passive}
+              {t(currentDimensions?.deity.phase2Passive)}
             </div>
           </div>
 
           {/* Taboo */}
           <div className="px-4 py-3 border-b border-[rgba(200,164,106,0.1)]">
-            <div className="text-[#C8B098] text-[10px] mb-1">禁忌</div>
-            <div className="font-serif font-bold text-xs text-[#9B72C8]">{currentDimensions?.taboo.name}</div>
-            <div className="text-[11px] text-[#B09880] mt-0.5 leading-relaxed">{currentDimensions?.taboo.phase2Trigger}</div>
+            <div className="text-[#C8B098] text-[10px] mb-1">{t('禁忌')}</div>
+            <div className="font-serif font-bold text-xs text-[#9B72C8]">{t(currentDimensions?.taboo.name)}</div>
+            <div className="text-[11px] text-[#B09880] mt-0.5 leading-relaxed">{t(currentDimensions?.taboo.phase2Trigger)}</div>
           </div>
 
           {/* Relics */}
           {(player?.ownedRelicIds?.length ?? 0) > 0 && (
             <div className="px-4 py-3 border-b border-[rgba(200,164,106,0.1)]">
-              <div className="text-[#C8B098] text-[10px] mb-1">持有奇物</div>
+              <div className="text-[#C8B098] text-[10px] mb-1">{t('持有奇物')}</div>
               <div className="flex flex-wrap gap-1">
                 {player?.ownedRelicIds.map(rId => {
                   const relic = RELICS.find(r => r.id === rId);
@@ -238,8 +240,8 @@ export default function BattlePage() {
                     <span key={rId}
                       className="inline-block text-[9px] px-1.5 py-0.5 rounded font-serif"
                       style={{ background: 'rgba(200,164,106,0.12)', color: '#C8A46A', border: '1px solid rgba(200,164,106,0.25)' }}
-                      title={relic?.passiveEffect}>
-                      {relic?.name ?? rId}
+                      title={t(relic?.passiveEffect ?? '')}>
+                      {t(relic?.name ?? rId)}
                     </span>
                   );
                 })}
@@ -250,25 +252,25 @@ export default function BattlePage() {
           {/* Chain */}
           {player?.activeChain && (
             <div className="px-4 py-3 border-b border-[rgba(200,164,106,0.1)]">
-              <div className="text-[#C8B098] text-[10px] mb-1">連鎖共鳴</div>
+              <div className="text-[#C8B098] text-[10px] mb-1">{t('連鎖共鳴')}</div>
               <div className="text-[10px] font-serif text-[#D4A040] font-bold">
-                {player.activeChain.name}
+                {t(player.activeChain.name)}
               </div>
               <div className="text-[10px] text-[#B09880] mt-0.5 leading-relaxed">
-                {player.activeChain.effect}
+                {t(player.activeChain.effect)}
               </div>
             </div>
           )}
 
           {/* Move & actions */}
           <div className="px-4 py-4 flex flex-col gap-3 flex-1">
-            <div className="text-[#C8B098] text-[10px] tracking-widest">移動</div>
+            <div className="text-[#C8B098] text-[10px] tracking-widest">{t('移動')}</div>
             <div className="grid grid-cols-2 gap-2">
               <button className="btn-wood py-2.5 text-sm" onClick={() => moveOnBoard(-1)} data-testid="btn-move-back">
-                ← 後退
+                ← {t('後退')}
               </button>
               <button className="btn-wood py-2.5 text-sm" onClick={() => moveOnBoard(1)} data-testid="btn-move-forward">
-                前進 →
+                {t('前進')} →
               </button>
             </div>
           </div>
@@ -283,7 +285,7 @@ export default function BattlePage() {
                 onClick={declareVictory}
                 data-testid="btn-victory"
               >
-                宣告破局
+                {t('宣告破局')}
               </motion.button>
             )}
             <motion.button
@@ -292,7 +294,7 @@ export default function BattlePage() {
               onClick={handleEndTurn}
               data-testid="btn-end-turn"
             >
-              {playerDist === 0 ? '【對峙】' : '結束回合'}
+              {playerDist === 0 ? t('【對峙】') : t('結束回合')}
             </motion.button>
           </div>
         </div>
@@ -330,14 +332,14 @@ export default function BattlePage() {
             {/* Center info */}
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
-                <div className="text-[#C8B098] text-[10px] font-serif mb-2 tracking-widest" title="當前追逐者">
-                  {currentDimensions?.chaser.name}
+                <div className="text-[#C8B098] text-[10px] font-serif mb-2 tracking-widest" title={t('當前追逐者')}>
+                  {t(currentDimensions?.chaser.name)}
                 </div>
-                <div className="text-[#C8A46A] font-serif text-2xl font-bold" title="你與追逐者之間的節點距離">
+                <div className="text-[#C8A46A] font-serif text-2xl font-bold" title={t('你與追逐者之間的節點距離')}>
                   {playerDist}
                 </div>
                 <div className="text-[#B09880] text-[9px] tracking-widest flex items-center justify-center gap-1">
-  你 <span className="text-[#C8A46A]">←</span> 距離 <span className="text-[#C8A46A]">→</span> <IconOgre size={12} />
+  {t('你')} <span className="text-[#C8A46A]">←</span> {t('距離')} <span className="text-[#C8A46A]">→</span> <IconOgre size={12} />
 </div>
                 {chaserIsClose && (
                   <motion.div
@@ -345,7 +347,7 @@ export default function BattlePage() {
                     transition={{ repeat: Infinity, duration: 0.7 }}
                     className="mt-2 text-[#D04030] text-[10px] font-serif font-bold"
                   >
-                    危險！
+                    {t('危險！')}
                   </motion.div>
                 )}
               </div>
@@ -401,11 +403,11 @@ export default function BattlePage() {
                           {card.number}
                         </div>
                         <div className="font-serif text-[9px] text-center leading-tight mt-0.5 flex-1">
-                          {card.name.length > 2 ? card.name.substring(0, 2) : card.name}
+                          {card.name.length > 2 ? t(card.name).substring(0, 2) : t(card.name)}
                         </div>
                         {mainTag && (
                           <div className="text-[8px] text-center font-serif mt-0.5" style={{ color: tagColor }}>
-                            【{mainTag}】
+                            【{t(mainTag)}】
                           </div>
                         )}
                       </div>
@@ -467,7 +469,7 @@ export default function BattlePage() {
           {/* ─── HAND CARDS — fan layout ─── */}
           <div className="shrink-0 w-full px-4 pb-4 mt-2">
             <div className="text-center text-[#C8B098] text-[10px] font-serif tracking-widest mb-2">
-              手牌 — 點擊選中，再點出牌（紅色邊框 = 已選中）
+              {t('手牌 — 點擊選中，再點出牌（紅色邊框 = 已選中）')}
             </div>
             <div className="flex justify-center items-end gap-1 relative" style={{ height: '152px' }} data-testid="player-hand">
               {(player?.handCardIds ?? []).map((cardId, i) => {
@@ -523,11 +525,11 @@ export default function BattlePage() {
                       </div>
                       {/* Name */}
                       <div className="font-serif font-bold text-[11px] leading-tight text-[#1A1714] text-center">
-                        {card.name}
+                        {t(card.name)}
                       </div>
                       {/* Effect */}
                       <div className="mt-auto text-[9px] text-[#2A1A0E]/65 leading-tight line-clamp-2 border-t border-[rgba(60,36,16,0.15)] pt-1">
-                        {card.effect}
+                        {t(card.effect)}
                       </div>
                     </div>
 
@@ -538,14 +540,14 @@ export default function BattlePage() {
                         animate={{ opacity: 1 }}
                         className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-serif text-[#D04030] whitespace-nowrap"
                       >
-                        點擊出牌
+                        {t('點擊出牌')}
                       </motion.div>
                     )}
                   </motion.div>
                 );
               })}
               {(player?.handCardIds?.length ?? 0) === 0 && (
-                <div className="text-[#907060]/40 text-sm font-serif">手牌已空</div>
+                <div className="text-[#907060]/40 text-sm font-serif">{t('手牌已空')}</div>
               )}
             </div>
           </div>
@@ -556,7 +558,7 @@ export default function BattlePage() {
           style={{ background: 'rgba(10,7,4,0.9)', borderLeft: '1px solid rgba(200,164,106,0.1)' }}>
           <div className="px-4 py-3 border-b border-[rgba(200,164,106,0.1)]"
             style={{ background: 'rgba(0,0,0,0.3)' }}>
-            <div className="font-serif text-[#C8A46A]/70 text-xs tracking-widest">事件記錄</div>
+            <div className="font-serif text-[#C8A46A]/70 text-xs tracking-widest">{t('事件記錄')}</div>
           </div>
           <div className="flex-1 overflow-y-auto custom-scroll px-4 py-3 space-y-2">
             {log.slice(0, 12).map(entry => (
@@ -568,7 +570,7 @@ export default function BattlePage() {
                 'text-[#B09880]'
               }`}>
                 <span className="opacity-35 mr-1.5 text-[9px]">[{entry.turn}]</span>
-                {entry.text}
+                {t(entry.text)}
               </div>
             ))}
           </div>
@@ -576,9 +578,9 @@ export default function BattlePage() {
           {/* Phase 2 rules reminder */}
           <div className="px-4 py-3 border-t border-[rgba(200,164,106,0.1)]">
             <div className="text-[10px] text-[#B09880] font-serif leading-relaxed space-y-1">
-              <div>○ 選中卡牌再次點擊 → 出牌</div>
-              <div>○ 點擊翻面節點 → 調查</div>
-              <div>○ 距離 = 環上節點數</div>
+              <div>{t('○ 選中卡牌再次點擊 → 出牌')}</div>
+              <div>{t('○ 點擊翻面節點 → 調查')}</div>
+              <div>{t('○ 距離 = 環上節點數')}</div>
             </div>
           </div>
         </div>
@@ -607,8 +609,8 @@ export default function BattlePage() {
                 <div className="flex-1 flex items-center justify-center">
                   <CardArtwork cardId={playingCard.id} category={playingCard.category} width={78} height={66} />
                 </div>
-                <div className="font-serif font-bold text-[10px] text-[#2A1A0E] text-center">{playingCard.name}</div>
-                <div className="mt-auto text-[7px] text-[#2A1A0E]/50 leading-tight">{playingCard.effect}</div>
+                <div className="font-serif font-bold text-[10px] text-[#2A1A0E] text-center">{t(playingCard.name)}</div>
+                <div className="mt-auto text-[7px] text-[#2A1A0E]/50 leading-tight">{t(playingCard.effect)}</div>
               </div>
             </motion.div>
           </motion.div>
