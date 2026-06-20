@@ -9,7 +9,7 @@ import WashiTape from '@/components/art/WashiTape';
 
 const ITEM_ICONS: Record<string, React.ReactNode> = {
   riceball: <IconRiceball />, onigiri: <IconRiceball />, herb: <IconHerb />, medicine: <IconMedicine />, charm: <IconShrine />,
-  bell: <IconBell />, candle: <IconCandle />, map: <IconMapItem />, compass: <IconCompass />, mirror: <IconMirror />,
+  bell: <IconBell />, candle: <IconCandle />, map: <IconMap />, compass: <IconCompass />, mirror: <IconMirror />,
 };
 
 const ITEM_COLORS: Record<string, string> = {

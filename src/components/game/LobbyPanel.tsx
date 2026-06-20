@@ -25,7 +25,7 @@ export default function LobbyPanel({ onBack, onStartGame }: Props) {
     const unsub = socket.on('start_game', () => {
       onStartRef.current?.(CHARACTERS[0].id);
     });
-    return unsub;
+    return () => { unsub(); };
   }, []);
 
   const handleCreate = () => {

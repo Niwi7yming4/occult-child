@@ -436,7 +436,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().addLog('A new game begins. The village stirs with secrets...', 'system');
     get().addLog(`${dims.chaser.name} stalks the village tonight. Taboo: ${dims.taboo.name}`, 'warning');
     get().addLog(`Atmosphere: ${dims.atmosphere.name} - ${atmEffect.description}`, 'info');
-    get().addLog(`Escape condition: ${dims.victory.name} (${victoryTarget} pts)`, 'info');
+    get().addLog(`Escape condition: ${dims.victory.name} (${get().victoryTarget} pts)`, 'info');
   },
 
   proceedToExplore: () => {
@@ -1169,7 +1169,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       // Peek deck
       if (result.peekDeckCount > 0) {
-        get().addLog(`Peeked at ${peekDeckCount} card(s) from the deck.`, 'info');
+        get().addLog(`Peeked at ${result.peekDeckCount} card(s) from the deck.`, 'info');
       }
 
       // Apply move delta
@@ -1223,21 +1223,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // Relic bonuses ??Q3 (????????? allows choosing tag type
     let relicBonus = 0;
     if (player.ownedRelicIds.includes('Q3')) {
-      get().addLog(`Relic passive: ${passiveEffect}`, 'info');
+      const q3 = RELICS.find(r => r.id === 'Q3');
+      get().addLog(`Relic passive: ${q3?.passiveEffect ?? 'choose tag type'}`, 'info');
     }
 
     const bonuses = [
-      ...(tagBonus !== 0 ? [{ source: 'Tag ???', value: tagBonus }] : []),
-      ...(charBonus > 0 ? [{ source: `${character?.name}?????O`, value: charBonus }] : []),
-      ...(relicBonus > 0 ? [{ source: '????', value: relicBonus }] : []),
+      ...(tagBonus !== 0 ? [{ source: 'Tag bonus', value: tagBonus }] : []),
+      ...(charBonus > 0 ? [{ source: `${character?.name} ability`, value: charBonus }] : []),
+      ...(relicBonus > 0 ? [{ source: 'Relic bonus', value: relicBonus }] : []),
     ];
 
     const finalRate = Math.min(95, Math.max(5, baseRate + tagBonus + charBonus + relicBonus));
 
-    get().addLog(`Played {card.name}.`, 'info');
+    get().addLog(`Played ${card.name}.`, 'info');
 
     // Roll dice
-    const diceResult = get().rollDice(finalRate, `???????{currentDimensions?.chaser.name ?? '?@?s????}`, bonuses);
+    const diceResult = get().rollDice(finalRate, `Confront ${currentDimensions?.chaser.name ?? 'the chaser'}`, bonuses);
 
     // Auto-confront win from C7 (??????????
     if (battleFlags.autoConfrontWinCharges > 0) {
@@ -1320,14 +1321,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
           battleFlags: { ...get().battleFlags, chaserStoppedTurns: Math.max(battleFlags.chaserStoppedTurns, 2) },
           lanternCount: Math.min(state.maxLanterns, lanternCount + 2),
         });
-        get().addLog(`Chaser moves ${chaserMove} step(s). Lanterns: ${newLanterns}.`, 'warning');
+        get().addLog('Divine intervention: Jizo pushes chaser back and restores lanterns.', 'success');
         break;
       }
       case 'B': {
         set({
           chaserPosition: (chaserPosition + 1 + BOARD_NODE_COUNT) % BOARD_NODE_COUNT,
         });
-        get().addLog(`Chaser moves ${chaserMove} step(s). Lanterns: ${newLanterns}.`, 'warning');
+        get().addLog('Divine intervention: Inari guides the chaser away.', 'success');
         break;
       }
       case 'C': { // Rain (weather reset)
@@ -1335,7 +1336,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           environment: 'rain',
           chaserPosition: (chaserPosition + 2 + BOARD_NODE_COUNT) % BOARD_NODE_COUNT,
         });
-        get().addLog(`Chaser moves ${chaserMove} step(s). Lanterns: ${newLanterns}.`, 'warning');
+        get().addLog('Divine intervention: Water God brings rain and distracts the chaser.', 'success');
         break;
       }
       case 'D': { // Tree (fill hand)
@@ -1354,7 +1355,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         break;
       }
       case 'E': { // Road God (swap chaser with face-down card)
-        const targetNode = nodes.find(n => n.cardId && n.isFaceDown);
+        const boardNodes = get().boardNodes;
+        const targetNode = boardNodes.find(n => n.cardId && n.isFaceDown);
         if (targetNode) {
           set({ chaserPosition: targetNode.id });
         }
@@ -1398,7 +1400,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (player.mustDiscardNextTurn && resolvedHand.length > 0) {
       const discarded = resolvedHand[0];
       resolvedHand = resolvedHand.filter(id => id !== discarded);
-      get().addLog('Played {card.name}.', 'info');
+      get().addLog('Must discard first card.', 'info');
     }
     if (player.nextTurnExtraPlay) {
       resolvedExtraPlay = false;
@@ -1495,7 +1497,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ players: get().players.map(p =>
           p.id === localPlayerId ? { ...p, boardPosition: newPos } : p
         )});
-        get().addLog(`Relic passive: ${passiveEffect}`, 'info');
+        get().addLog('Relic passive: auto-distance activated.', 'info');
       }
     }
 
