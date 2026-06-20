@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "野孩子 1.0"
+version = "1.0.0"
+id = "artifacts/occult-child"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24685
+
+[services.development]
+run = "pnpm --filter @workspace/occult-child run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/occult-child", "run", "build" ]
+publicDir = "artifacts/occult-child/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24685"
+BASE_PATH = "/"
