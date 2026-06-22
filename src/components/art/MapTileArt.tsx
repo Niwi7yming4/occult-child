@@ -219,11 +219,34 @@ function HiddenArt({ w }: { w: number }) {
 export function MapTileArt({ tile, size = 80, dimmed = false }: TileArtProps) {
   const w = size;
   const h = size;
+  const paperFilterId = `map-tile-paper-${tile.id}`;
+  const fiberPatternId = `map-tile-fiber-${tile.id}`;
 
   return (
     <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h}
-      style={{ opacity: dimmed ? 0.35 : 1 }}>
-      <rect x="0" y="0" width={w} height={h} fill="#1A1208" />
+      style={{ opacity: dimmed ? 0.35 : 1, overflow: 'visible' }}>
+      <defs>
+        <filter id={paperFilterId} x="-8%" y="-8%" width="116%" height="116%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="2" seed={tile.id + 7} result="noise" />
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="0.7" />
+        </filter>
+        <pattern id={fiberPatternId} width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(32)">
+          <path d="M0 1.5 H8 M0 6.5 H8" stroke="rgba(75,48,24,0.12)" strokeWidth="0.45" />
+        </pattern>
+      </defs>
+      <path
+        d={`M${w*0.04},${h*0.04} L${w*0.95},${h*0.02} L${w*0.98},${h*0.12} L${w*0.96},${h*0.94} L${w*0.9},${h*0.98} L${w*0.08},${h*0.96} L${w*0.02},${h*0.88} L${w*0.03},${h*0.1} Z`}
+        fill="#d7c58d"
+        stroke="rgba(65,40,18,0.28)"
+        strokeWidth="1"
+        filter={`url(#${paperFilterId})`}
+      />
+      <path
+        d={`M${w*0.04},${h*0.04} L${w*0.95},${h*0.02} L${w*0.98},${h*0.12} L${w*0.96},${h*0.94} L${w*0.9},${h*0.98} L${w*0.08},${h*0.96} L${w*0.02},${h*0.88} L${w*0.03},${h*0.1} Z`}
+        fill={`url(#${fiberPatternId})`}
+        opacity="0.75"
+      />
+      <g transform={`translate(0 ${-h*0.02})`}>
       {tile.isHidden ? (
         <HiddenArt w={w} />
       ) : (
@@ -238,9 +261,15 @@ export function MapTileArt({ tile, size = 80, dimmed = false }: TileArtProps) {
           {tile.type === 'bridge'   && <BridgeArt w={w} />}
         </>
       )}
+      </g>
       {/* Woodblock outer border */}
-      <rect x="0" y="0" width={w} height={h} fill="none"
-        stroke="rgba(26,23,20,0.7)" strokeWidth="2.5" rx="2" />
+      <path
+        d={`M${w*0.04},${h*0.04} L${w*0.95},${h*0.02} L${w*0.98},${h*0.12} L${w*0.96},${h*0.94} L${w*0.9},${h*0.98} L${w*0.08},${h*0.96} L${w*0.02},${h*0.88} L${w*0.03},${h*0.1} Z`}
+        fill="none"
+        stroke="rgba(26,23,20,0.62)"
+        strokeWidth="2.2"
+        filter={`url(#${paperFilterId})`}
+      />
     </svg>
   );
 }

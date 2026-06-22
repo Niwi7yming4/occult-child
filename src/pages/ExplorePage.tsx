@@ -27,7 +27,7 @@ export default function ExplorePage() {
     timeOfDay, apRemaining, apTotal, mapTiles, players, localPlayerId,
     currentDimensions, villagerBonds, log, proceedToBattle,
     movePlayer, investigateTile, talkToVillager, tabooViolations,
-    addLog, hide, stopHiding, isHiding, visitShop, restAtShrine, inventory, useItem, showShopModal,
+    addLog, hide, stopHiding, isHiding, visitShop, restAtShrine, inventory, useItem, showShopModal, revealedIdentities, giveGift,
   } = useGameStore();
 
   const player = players.find(p => p.id === localPlayerId);
@@ -54,17 +54,15 @@ export default function ExplorePage() {
   const isDangerous = timeOfDay === 'dusk' || timeOfDay === 'twilight';
 
   return (
-    <div className="w-full h-screen overflow-hidden flex flex-col texture-tatami relative">
-      {/* Tatami background */}
-      <div className="absolute inset-0 texture-tatami z-0" />
+    <div className={`w-full h-screen overflow-hidden flex flex-col paper-theatre time-${timeOfDay} relative`}>
       {/* Fireflies at dusk/twilight */}
       {timeOfDay === 'dusk' && <AmbientParticles type="firefly" count={12} className="z-[1]" />}
       {timeOfDay === 'twilight' && <AmbientParticles type="firefly" count={6} className="z-[1]" />}
 
       {/* TIME BANNER — top strip */}
-      <div className="relative z-10 flex items-center justify-between px-6 py-2 shrink-0"
-        style={{ background: timeCfg.sky, borderBottom: '2px solid rgba(0,0,0,0.3)' }}>
-        <div className="flex items-center gap-3">
+      <div className="relative z-10 flex items-center justify-between px-6 py-2 shrink-0 paper-time-slip"
+        style={{ borderBottom: '2px solid rgba(0,0,0,0.3)' }}>
+        <div className="absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 items-center gap-3">
           <span className="text-2xl">
             {(() => {
               const TimeIcon = GAME_ICONS[timeCfg.icon as keyof typeof GAME_ICONS];
@@ -72,8 +70,8 @@ export default function ExplorePage() {
             })()}
           </span>
           <div>
-            <span className="font-serif font-bold text-[#F0E8D8] tracking-widest">{t(timeCfg.label)}</span>
-            <span className="text-[#E0D0B0]/70 text-xs ml-2">{t(timeCfg.desc)}</span>
+            <span className="font-serif font-bold text-[#1A120B] tracking-widest">{t(timeCfg.label)}</span>
+            <span className="text-[#5A3E22]/70 text-xs ml-2">{t(timeCfg.desc)}</span>
           </div>
         </div>
         {isDangerous && (
@@ -98,11 +96,11 @@ export default function ExplorePage() {
         </div>
       </div>
 
-      {/* MAIN AREA — tatami + wood table */}
+      {/* MAIN AREA — paper theatre stage */}
       <div className="relative z-10 flex-1 flex overflow-hidden">
 
         {/* LEFT PANEL — status (wood) */}
-        <div className="w-56 shrink-0 texture-wood flex flex-col border-r border-[rgba(200,164,106,0.15)]">
+        <div className="w-56 shrink-0 side-scroll-panel flex flex-col border-r border-[rgba(200,164,106,0.15)]">
           {/* Character */}
           <div className="px-5 py-4 border-b border-[rgba(200,164,106,0.12)]">
             {character && (
@@ -236,10 +234,19 @@ export default function ExplorePage() {
         </div>
 
         {/* CENTER — Map */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden emaki-wrap">
           {/* Map grid area */}
-          <div className="flex-1 p-6 overflow-y-auto custom-scroll">
-            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }} data-testid="map-tiles">
+          <div className="flex-1 p-5 overflow-y-auto custom-scroll">
+            <div className="emaki-stage">
+              <div className="explore-scenery" aria-hidden="true">
+                <div className="scene-rice-field" />
+                <div className="scene-village" />
+                <div className="scene-tree" />
+                <div className="scene-torii" />
+                <div className="scene-well" />
+                <div className="scene-reeds" />
+              </div>
+            <div className="grid gap-3 md:gap-4 map-tiles-emaki map-tiles-field" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }} data-testid="map-tiles">
               {mapTiles.map((tile) => {
                 const isCurrent = player?.mapPosition === tile.id;
                 const isConnected = connectedTileIds.includes(tile.id);
@@ -247,18 +254,13 @@ export default function ExplorePage() {
                 return (
                   <motion.div
                     key={tile.id}
-                    whileHover={isConnected ? { y: -3, scale: 1.02 } : {}}
                     onClick={() => isConnected && handleMovePlayer(tile.id)}
                     data-testid={`tile-${tile.id}`}
-                    className={`relative rounded overflow-hidden transition-all ${
-                      isCurrent  ? 'ring-2 ring-[#C8A46A] shadow-[0_0_16px_rgba(200,164,106,0.5)]' :
-                      isConnected ? 'cursor-pointer' :
-                      'tile-fog'
+                    className={`map-node ${
+                      isCurrent  ? 'current' :
+                      isConnected ? 'connected' :
+                      'locked'
                     }`}
-                    style={{
-                      background: isCurrent ? 'rgba(200,164,106,0.15)' : 'rgba(20,14,8,0.7)',
-                      border: isCurrent ? 'none' : isConnected ? '1px solid rgba(200,164,106,0.3)' : '1px solid rgba(60,40,20,0.3)',
-                    }}
                   >
                     {/* Connected glow */}
                     {isConnected && !isCurrent && (
@@ -266,26 +268,30 @@ export default function ExplorePage() {
                         style={{ boxShadow: 'inset 0 0 16px rgba(200,164,106,0.12)' }} />
                     )}
 
-                    <div className="flex flex-col items-center text-center min-h-[96px] justify-center">
-                      <MapTileArt tile={tile} size={76} dimmed={!isCurrent && !isConnected} />
+                    <div className="relative z-10 flex flex-col items-center text-center min-h-[112px] justify-center p-2">
+                      <div className="map-art-wrap">
+                        <MapTileArt tile={tile} size={82} dimmed={!isCurrent && !isConnected} />
+                      </div>
                       {!tile.isHidden && (
-                        <div className="font-serif text-[#C8A46A] text-[10px] font-bold leading-tight mt-1 px-2">
+                        <div className="map-paper-label font-serif text-[10px] font-bold leading-tight px-2">
                           {t(tile.label)}
                         </div>
                       )}
 
                       {/* Badges */}
-                      <div className="absolute top-1.5 right-1.5 flex gap-1">
-                        {tile.hasJizo && <IconJizoStatue size={14} />}
-                        {tile.hasItem && !tile.isHidden && <IconSparkle size={14} />}
-                      </div>
+                      {(tile.hasJizo || (tile.hasItem && !tile.isHidden)) && (
+                        <div className="absolute top-1.5 right-1.5 flex gap-1 map-badge-row">
+                          {tile.hasJizo && <IconJizoStatue size={14} />}
+                          {tile.hasItem && !tile.isHidden && <IconSparkle size={14} />}
+                        </div>
+                      )}
 
                       {/* Player token */}
                       {isCurrent && character && (
                         <motion.div
                           layoutId="explore-player"
-                          className="absolute -top-2 -right-2 z-20"
-                          style={{ filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.5))' }}
+                          className="absolute -top-4 -right-3 z-20 paper-standee-token"
+                          style={{ filter: 'drop-shadow(0 0 8px rgba(236,210,150,0.55))' }}
                         >
                           <CharacterPortrait characterId={character.id} size={34} />
                         </motion.div>
@@ -307,10 +313,11 @@ export default function ExplorePage() {
                 );
               })}
             </div>
+            </div>
           </div>
 
           {/* Bottom action bar */}
-          <div className="shrink-0 px-6 py-3 border-t border-[rgba(200,164,106,0.15)]"
+          <div className="shrink-0 px-6 py-3 border-t border-[rgba(200,164,106,0.15)] action-wood-ledge"
             style={{ background: 'rgba(20,12,6,0.9)' }}>
             <div className="flex items-center gap-3">
               <span className="text-[#C8B098] text-[11px] font-serif shrink-0">{t('動作：')}</span>
@@ -348,7 +355,7 @@ export default function ExplorePage() {
         </div>
 
         {/* RIGHT PANEL — Villagers */}
-        <div className="w-56 shrink-0 texture-wood flex flex-col border-l border-[rgba(200,164,106,0.15)]">
+        <div className="w-56 shrink-0 side-scroll-panel flex flex-col border-l border-[rgba(200,164,106,0.15)]">
           <div className="px-4 py-3 border-b border-[rgba(200,164,106,0.15)]"
             style={{ background: 'rgba(0,0,0,0.3)' }}>
             <div className="font-serif text-[#C8A46A] text-sm tracking-widest">{t('村民羈絆')}</div>
@@ -362,7 +369,7 @@ export default function ExplorePage() {
                   key={v.id}
                   whileHover={{ x: 2 }}
                   onClick={() => handleTalkToVillager(v)}
-                  className="cursor-pointer rounded p-3 transition-colors"
+                  className="cursor-pointer rounded p-3 transition-colors villager-paper-row"
                   style={{
                     background: 'rgba(0,0,0,0.3)',
                     border: '1px solid rgba(200,164,106,0.12)',
@@ -428,7 +435,7 @@ export default function ExplorePage() {
                   <VillagerPortrait
                     villagerId={villagerDialog.id}
                     size={80}
-                    cracked={villagerDialog.bond >= 4}
+                    cracked={revealedIdentities[villagerDialog.id]}
                   />
                 </div>
                 <div className="pb-2">
@@ -490,9 +497,9 @@ export default function ExplorePage() {
                   <button
                     className="w-full text-left px-4 py-2 font-serif text-sm text-[#2A1A0E]/75 hover:text-[#2A1A0E] hover:bg-[rgba(200,164,106,0.1)] rounded transition-colors"
                     onClick={() => {
-                      const { useItem, inventory } = useGameStore.getState();
+                      const { inventory } = useGameStore.getState();
                       const gift = inventory.find(id => { const i = getItemById(id); return i && i.exploreOnly; });
-                      if (gift) { useItem(gift); talkToVillager(villagerDialog.id); }
+                      if (gift) { giveGift(villagerDialog.id, gift); }
                       else { addLog(t('你沒有可以送出的物品。'), 'warning'); }
                       setVillagerDialog(null);
                     }}

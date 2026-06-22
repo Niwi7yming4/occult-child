@@ -26,8 +26,9 @@ export default function BattlePage() {
     boardNodes, chaserPosition, chaserThreat, lanternCount, maxLanterns,
     turnNumber, environment, victoryProgress, victoryTarget, divineCharges,
     players, localPlayerId, currentDimensions,
-    moveOnBoard, playCard, invokeDivine, declareVictory, endTurn, investigateTile, log,
-    tabooViolations, playingCard, clearPlayingCard,
+    moveOnBoard, playCard, invokeDivine, declareVictory, endTurn, investigateNode, log,
+    battleActionsRemaining,
+    tabooViolations, playingCard, clearPlayingCard, battleFlags, freePeek,
   } = useGameStore();
 
   const player = players.find(p => p.id === localPlayerId);
@@ -83,8 +84,7 @@ export default function BattlePage() {
   };
 
   return (
-    <div className={`w-full h-screen overflow-hidden flex flex-col relative texture-wood ${chaserIsClose ? 'edge-red' : ''}`}
-      style={{ background: '#100C08' }}>
+    <div className={`w-full h-screen overflow-hidden flex flex-col relative wood-table battle-env-${environment} ${chaserIsClose ? 'edge-red' : ''}`}>
 
       {/* Atmospheric overlay */}
       <div className="absolute inset-0 pointer-events-none z-0 battle-vignette" />
@@ -94,7 +94,7 @@ export default function BattlePage() {
         style={{ background: 'radial-gradient(circle, rgba(255,160,30,0.12) 0%, transparent 70%)' }} />
 
       {/* ─── TOP HUD ─── */}
-      <div className="relative z-10 shrink-0 flex items-center gap-4 px-6 py-2.5"
+      <div className="relative z-10 shrink-0 flex items-center gap-4 px-6 py-2.5 paper-time-slip"
         style={{ background: 'rgba(16,10,6,0.92)', borderBottom: '1px solid rgba(200,164,106,0.12)' }}>
 
         {/* Lanterns (candles) — 生命/燈火值 */}
@@ -181,7 +181,7 @@ export default function BattlePage() {
       <div className="relative z-10 flex-1 flex overflow-hidden">
 
         {/* LEFT PANEL — Battle info + actions */}
-        <div className="w-56 shrink-0 flex flex-col"
+        <div className="w-56 shrink-0 flex flex-col side-scroll-panel"
           style={{ background: 'rgba(12,8,4,0.9)', borderRight: '1px solid rgba(200,164,106,0.1)' }}>
 
           {/* Chaser */}
@@ -262,6 +262,14 @@ export default function BattlePage() {
             </div>
           )}
 
+          {/* Battle actions indicator */}
+          <div className="px-4 flex items-center gap-2">
+            <div className="text-[#C8B098] text-[10px] tracking-widest">{t('行動次數')}</div>
+            {[0, 1].map(i => (
+              <div key={i} className={`w-2.5 h-2.5 rounded-full border ${i < battleActionsRemaining ? 'border-[#C8A46A] bg-[#C8A46A]' : 'border-[#5A4030]/40 bg-transparent'}`} />
+            ))}
+          </div>
+
           {/* Move & actions */}
           <div className="px-4 py-4 flex flex-col gap-3 flex-1">
             <div className="text-[#C8B098] text-[10px] tracking-widest">{t('移動')}</div>
@@ -273,6 +281,25 @@ export default function BattlePage() {
                 {t('前進')} →
               </button>
             </div>
+            {/* Fox Free Peek button */}
+            {character?.id === 'fox' && !battleFlags.foxPeekUsed && (
+              <div className="mt-2">
+                <div className="text-[#C8B098] text-[10px] tracking-widest mb-1">{t('狐狸引路')}</div>
+                <button
+                  className="btn-wood py-2 text-sm w-full"
+                  onClick={() => {
+                    // Find a face-down node to peek
+                    const faceDownNodes = boardNodes.filter(n => n.isFaceDown && n.cardId);
+                    if (faceDownNodes.length > 0) {
+                      freePeek(faceDownNodes[0].id);
+                    }
+                  }}
+                  data-testid="btn-free-peek"
+                >
+                  {t('窺視')} (Free)
+                </button>
+              </div>
+            )}
           </div>
 
           {/* End turn + Victory */}
@@ -300,10 +327,12 @@ export default function BattlePage() {
         </div>
 
         {/* CENTER — Ring board */}
-        <div className="flex-1 flex flex-col items-center justify-start pt-4 overflow-hidden relative">
+        <div className="flex-1 flex flex-col items-center justify-start pt-4 overflow-hidden relative battle-scroll-field">
 
           {/* Ring board */}
-          <div className="relative shrink-0" style={{ width: RING_CENTER * 2, height: RING_CENTER * 2 }} data-testid="battle-board">
+          <div className="battle-table-scene">
+            <div className="table-oil-lamp" aria-hidden="true" />
+          <div className="relative shrink-0 ritual-tabletop" style={{ width: RING_CENTER * 2, height: RING_CENTER * 2 }} data-testid="battle-board">
 
             {/* Ritual circle decorations */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox={`0 0 ${RING_CENTER*2} ${RING_CENTER*2}`}>
@@ -372,8 +401,8 @@ export default function BattlePage() {
                   style={{ left: x, top: y, transform: 'translate(-50%, -50%)' }}
                 >
                   <div
-                    onClick={() => node.isFaceDown && investigateTile(node.id)}
-                    className={`board-node w-12 h-16 flex flex-col items-center justify-center text-center overflow-hidden
+                    onClick={() => node.isFaceDown && battleActionsRemaining > 0 && investigateNode(node.id)}
+                    className={`board-node paper-board-card w-12 h-16 flex flex-col items-center justify-center text-center overflow-hidden
                       ${node.isFaceDown ? 'clickable' : ''}
                       ${node.isSafeZone ? 'safe-zone' : ''}
                       ${node.isGuard ? 'guard-zone' : ''}
@@ -396,6 +425,13 @@ export default function BattlePage() {
                           <path d="M14 6 L14 30 M6 18 L22 18" stroke="#C8A46A" strokeWidth="0.5" opacity="0.5" />
                           <circle cx="14" cy="18" r="5" fill="none" stroke="#C8A46A" strokeWidth="0.5" opacity="0.4" />
                         </svg>
+                        {battleActionsRemaining > 0 && (
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                            <div className="text-[8px] text-[#C8A46A] bg-[#1A0E06]/80 px-1 py-0.5 rounded font-serif">
+                              {t('翻開')}
+                            </div>
+                          </div>
+                        )}
                       </>
                     ) : card ? (
                       <div className="px-1 py-1 w-full h-full flex flex-col">
@@ -413,6 +449,15 @@ export default function BattlePage() {
                       </div>
                     ) : (
                       <span className="text-[10px] opacity-40">—</span>
+                    )}
+
+                    {/* Investigation record flavor text on face-up nodes */}
+                    {!node.isFaceDown && node.flavorText && (
+                      <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 opacity-0 hover:opacity-100 group-hover:opacity-100 transition-opacity duration-300 z-30 pointer-events-none whitespace-nowrap">
+                        <div className="text-[8px] text-[#C8A46A] bg-[#1A0E06]/90 px-2 py-0.5 rounded font-serif tracking-wider">
+                          {t(node.flavorText)}
+                        </div>
+                      </div>
                     )}
 
                     {node.isGuard && !node.isObstacle && (
@@ -433,7 +478,7 @@ export default function BattlePage() {
                   {isPlayer && character && (
                     <motion.div
                       layoutId="battle-player"
-                      className="absolute -top-3 -right-3 w-9 h-9 rounded-full border-2 border-[#F0E8D8] flex items-center justify-center z-20 shadow-[0_0_14px_rgba(255,255,255,0.35)]"
+                      className="absolute -top-3 -right-3 w-9 h-9 rounded-full border-2 border-[#F0E8D8] flex items-center justify-center z-20 shadow-[0_0_14px_rgba(236,210,150,0.35)] board-token-player"
                       style={{ background: character.color, fontSize: '17px' }}
                     >
                       {(() => {
@@ -447,7 +492,7 @@ export default function BattlePage() {
                   {isChaser && (
                     <motion.div
                       layoutId="battle-chaser"
-                      className="absolute -bottom-3 -left-3 w-11 h-11 rounded-full flex items-center justify-center text-xl z-30"
+                      className="absolute -bottom-3 -left-3 w-11 h-11 rounded-full flex items-center justify-center text-xl z-30 board-token-chaser"
                       style={{
                         background: 'linear-gradient(135deg, #8B2018, #D04030)',
                         border: '2px solid #F04030',
@@ -464,6 +509,7 @@ export default function BattlePage() {
                 </div>
               );
             })}
+            </div>
           </div>
 
           {/* ─── HAND CARDS — fan layout ─── */}
@@ -508,7 +554,9 @@ export default function BattlePage() {
                       {/* Number + tag row */}
                       <div className="flex items-center justify-between mb-1">
                         <div className="font-serif font-black text-2xl leading-none" style={{ color: tagColor }}>
-                          {card.number === 0 ? '?' : card.number}
+                          {card.number === 0 ? '?' : (battleFlags?.blurredCards
+                            ? ((card.id.charCodeAt(1) * 7 + turnNumber) % 9) + 1
+                            : card.number)}
                         </div>
                         <div className="flex flex-col gap-0.5 items-end">
                           {card.tags.slice(0,2).map(tag => (
@@ -554,7 +602,7 @@ export default function BattlePage() {
         </div>
 
         {/* RIGHT PANEL — Log */}
-        <div className="w-56 shrink-0 flex flex-col"
+        <div className="w-56 shrink-0 flex flex-col side-scroll-panel"
           style={{ background: 'rgba(10,7,4,0.9)', borderLeft: '1px solid rgba(200,164,106,0.1)' }}>
           <div className="px-4 py-3 border-b border-[rgba(200,164,106,0.1)]"
             style={{ background: 'rgba(0,0,0,0.3)' }}>

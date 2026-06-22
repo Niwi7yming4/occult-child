@@ -311,6 +311,53 @@ export default function HidePanel() {
 
                 {gamePhase === 'holding' && (
                   <>
+                    {/* Crack overlay — glass-like crack pattern that intensifies with progress */}
+                    <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 opacity-[0.15]"
+                      viewBox="0 0 320 480" preserveAspectRatio="none">
+                      <defs>
+                        <filter id="crackBlur">
+                          <feGaussianBlur stdDeviation="1" />
+                        </filter>
+                      </defs>
+                      {Array.from({ length: Math.max(3, Math.floor(progress / 12)) }).map((_, i) => {
+                        const cx = 100 + Math.random() * 120;
+                        const cy = 80 + Math.random() * 280;
+                        const splits = 2 + Math.floor(Math.random() * 3);
+                        let path = `M${cx},${cy}`;
+                        let px = cx, py = cy;
+                        for (let s = 0; s < splits; s++) {
+                          const angle = Math.random() * Math.PI * 2;
+                          const len = 20 + Math.random() * 60;
+                          px += Math.cos(angle) * len;
+                          py += Math.sin(angle) * len;
+                          path += ` L${px},${py}`;
+                        }
+                        return (
+                          <path key={i} d={path} stroke="#D04030" strokeWidth={0.5 + Math.random() * 1.5}
+                            fill="none" filter="url(#crackBlur)" opacity={0.3 + Math.random() * 0.7} />
+                        );
+                      })}
+                    </svg>
+
+                    {/* Vignette overlay — pulses with heartbeat */}
+                    <div className="absolute inset-0 pointer-events-none z-0"
+                      style={{
+                        background: `radial-gradient(ellipse at center, transparent ${50 - progress * 0.2}%, rgba(8,5,3,${0.2 + progress * 0.006}) 100%)`,
+                        opacity: 0.6 + (promptFlash ? 0.2 : 0),
+                        transition: 'opacity 0.3s',
+                      }}
+                    />
+
+                    {/* Chaser proximity red glow */}
+                    {chaserDistance <= 1 && (
+                      <div className="absolute inset-0 pointer-events-none z-0"
+                        style={{
+                          background: `radial-gradient(ellipse at 50% 60%, transparent 30%, rgba(208,64,48,${0.08 + (promptFlash ? 0.1 : 0)}) 100%)`,
+                          transition: 'opacity 0.3s',
+                        }}
+                      />
+                    )}
+
                     {/* Heartbeat indicator */}
                     <div className="relative mb-4 mt-2">
                       <motion.div

@@ -9,6 +9,8 @@ import TabooModal from "@/components/game/TabooModal";
 import InvestigationModal from "@/components/game/InvestigationModal";
 import BondRewardModal from "@/components/game/BondRewardModal";
 import TutorialOverlay from "@/components/game/TutorialOverlay";
+import TwistTransition from "@/components/game/TwistTransition";
+import { MemoryFlashback } from "@/components/game/MemoryFlashback";
 
 const MenuPage = lazy(() => import("@/pages/MenuPage"));
 const SetupPage = lazy(() => import("@/pages/SetupPage"));
@@ -30,7 +32,7 @@ export default function App() {
 }
 
 function AppContent() {
-  const { phase, showDiceModal, pendingTabooCheck, investigationResult, bondReward, showNightTransition, dismissNightTransition } = useGameStore();
+  const { phase, showDiceModal, pendingTabooCheck, investigationResult, bondReward, showNightTransition, showTwistTransition, dismissNightTransition } = useGameStore();
   const { t } = useI18n();
 
   useEffect(() => {
@@ -61,23 +63,59 @@ function AppContent() {
         {investigationResult && <InvestigationModal />}
         {bondReward && <BondRewardModal />}
         <TutorialOverlay />
+        <TwistTransition />
+        <MemoryFlashback />
         <AnimatePresence>
           {showNightTransition && (
             <motion.div
-              initial={{ opacity: 0 }}
+              initial={{ opacity: 0, scaleX: 1 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.6 }}
-              className="fixed inset-0 z-[70] flex items-center justify-center pointer-events-none"
-              style={{ background: 'rgba(8,5,3,0.94)' }}
+              exit={{ opacity: 0, scaleX: 0 }}
+              transition={{ duration: 0.8 }}
+              className="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden"
+              style={{
+                background: 'rgba(8,5,3,0.94)',
+                transformOrigin: 'left center',
+              }}
             >
+              {/* Paper edge shadow */}
+              <motion.div
+                className="absolute inset-y-0 right-0 w-16 z-10"
+                animate={{ opacity: [0, 0.6, 0] }}
+                transition={{ duration: 1.2 }}
+                style={{
+                  background: 'linear-gradient(to left, rgba(8,5,3,0.8), transparent)',
+                }}
+              />
+              {/* Falling scrap particles */}
+              {Array.from({ length: 8 }).map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute w-2 h-3 opacity-20"
+                  style={{
+                    background: '#C8A46A',
+                    left: `${10 + Math.random() * 80}%`,
+                    top: -10,
+                  }}
+                  animate={{ top: '110%', rotate: 360 + Math.random() * 720 }}
+                  transition={{ duration: 2 + Math.random() * 3, delay: Math.random() * 1.5, repeat: Infinity, ease: 'linear' }}
+                />
+              ))}
               <motion.div
                 animate={{ opacity: [1, 1, 0] }}
-                transition={{ duration: 2, times: [0, 0.4, 1] }}
-                className="font-serif font-black text-5xl tracking-[0.5em] text-[#C84030]"
+                transition={{ duration: 2.5, times: [0, 0.4, 1] }}
+                className="font-serif font-black text-5xl tracking-[0.5em] text-[#C84030] z-20"
                 style={{ textShadow: '0 0 40px rgba(200,64,48,0.5)' }}
               >
                 {t('入夜了')}
+              </motion.div>
+              {/* Subtitle */}
+              <motion.div
+                animate={{ opacity: [0, 0.6, 0] }}
+                transition={{ duration: 2.5, times: [0.2, 0.5, 1] }}
+                className="absolute bottom-1/3 font-serif text-sm text-[#C8A46A]/60 tracking-[0.3em]"
+              >
+                {t('牌局開始')}
               </motion.div>
             </motion.div>
           )}

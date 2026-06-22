@@ -41,17 +41,26 @@ export function computeChaserAI(ctx: ChaserAIContext): ChaserAIResult {
 }
 
 /**
- * 無面童子 (A): Moves 1-2 steps. If player said card name out loud, +1.
+ * 無面童子 (A): Moves 1-2 steps. When player plays a card, +1 extra step.
  * Weak to 【假】.
  */
 function chaseA(ctx: ChaserAIContext): ChaserAIResult {
   let move = randBetween(1, 2);
+  // If a card was played this turn (hand size decreased), chaser gets +1
+  if (ctx.battleFlags.nextCardNumberPlus1) {
+    move += 1;
+  }
+  // Chain 1 (Q1+Q7): 被記住的孩子 — speed -1
+  if (ctx.player.activeChain?.name === '被記住的孩子') {
+    move = Math.max(1, move - 1);
+  }
   let dir = towardPlayer(ctx);
 
   // Check if guard blocks
   let targetPos = (ctx.chaserPosition + dir * move + ctx.totalNodes) % ctx.totalNodes;
   if (ctx.boardNodes[targetPos]?.isGuard) {
     move = 0;
+    targetPos = ctx.chaserPosition;
   }
 
   const triggerConfrontation = targetPos === ctx.playerBoardPosition;
@@ -64,7 +73,7 @@ function chaseA(ctx: ChaserAIContext): ChaserAIResult {
 
 /**
  * 雨女 (B): Rain environment boosts speed. Water tags make her stronger.
- * Moves 1-2 steps. Every 3 turns, rain environment + card number blur.
+ * Moves 1-2 steps. Every 3 turns, card numbers are blurred (uncertain).
  */
 function chaseB(ctx: ChaserAIContext): ChaserAIResult {
   let move = randBetween(1, 2);
@@ -80,14 +89,14 @@ function chaseB(ctx: ChaserAIContext): ChaserAIResult {
   }
 
   const triggerConfrontation = targetPos === ctx.playerBoardPosition;
-  const isRainTurn = ctx.turnNumber % 3 === 0;
+  const isBlurTurn = ctx.turnNumber % 3 === 0;
 
   return {
     move, direction: dir, triggerConfrontation, newChaserPos: targetPos,
     specialEffect: move > 0
       ? `雨女${ctx.environment === 'rain' ? '藉雨勢' : ''}移動 ${move} 步。`
       : '雨女被守護擋住。',
-    extraFlags: isRainTurn ? { onlyNightCards: true } : undefined,
+    extraFlags: isBlurTurn ? { blurredCards: true } : undefined,
   };
 }
 
@@ -122,7 +131,7 @@ function chaseC(ctx: ChaserAIContext): ChaserAIResult {
 }
 
 /**
- * 野篦坊 (D): Moves 1 step. Every 2 turns, copies player's last card to board.
+ * 野篦坊 (D): Moves 1 step. Every 2 turns, copies player's last played card to a random face-down node.
  * Weak to 【真】.
  */
 function chaseD(ctx: ChaserAIContext): ChaserAIResult {
@@ -133,6 +142,15 @@ function chaseD(ctx: ChaserAIContext): ChaserAIResult {
 
   // Every 2 turns, copy a card to board
   const shouldCopy = ctx.turnNumber % 2 === 0;
+  let copiedNode = -1;
+  if (shouldCopy) {
+    // Find a random face-down node to place a copy
+    const faceDownNodes = ctx.boardNodes.filter(n => n.isFaceDown && n.cardId);
+    if (faceDownNodes.length > 0) {
+      const target = faceDownNodes[Math.floor(Math.random() * faceDownNodes.length)];
+      copiedNode = target.id;
+    }
+  }
 
   if (ctx.boardNodes[targetPos]?.isGuard) {
     targetPos = ctx.chaserPosition;
@@ -143,37 +161,55 @@ function chaseD(ctx: ChaserAIContext): ChaserAIResult {
 
   return {
     move, direction: dir, triggerConfrontation, newChaserPos: targetPos,
-    specialEffect: shouldCopy ? '野篦坊複製了一張牌到環上。' : `野篦坊移動 ${move} 步。`,
+    specialEffect: shouldCopy
+      ? copiedNode >= 0
+        ? `野篦坊複製了一張牌到節點 ${copiedNode}。`
+        : '野篦坊試圖複製牌，但沒有空位。'
+      : `野篦坊移動 ${move} 步。`,
   };
 }
 
 /**
  * 轆轤首 (E): Head and body move independently (occupy 2 nodes).
+ * Head moves 1-2 steps toward player, body follows 1 step behind head.
  * Weak to 【夜】.
  */
 function chaseE(ctx: ChaserAIContext): ChaserAIResult {
   let move = randBetween(1, 2);
+  // Chain 5 (Q5+Q11): 斷頭的路標 — speed halved
+  if (ctx.player.activeChain?.name === '斷頭的路標') {
+    move = Math.max(1, Math.floor(move / 2));
+  }
   let dir = towardPlayer(ctx);
 
-  let targetPos = (ctx.chaserPosition + dir * move + ctx.totalNodes) % ctx.totalNodes;
+  let headPos = (ctx.chaserPosition + dir * move + ctx.totalNodes) % ctx.totalNodes;
 
-  if (ctx.boardNodes[targetPos]?.isGuard) {
-    targetPos = ctx.chaserPosition;
+  if (ctx.boardNodes[headPos]?.isGuard) {
+    headPos = ctx.chaserPosition;
     move = 0;
   }
 
-  const triggerConfrontation = targetPos === ctx.playerBoardPosition;
+  // Body follows 1 step behind head (or stays if head didn't move)
+  let bodyPos = ctx.battleFlags.chaserBodyPosition;
+  if (move > 0) {
+    // Body moves toward head position
+    const bodyDir = headPos > ctx.chaserPosition ? 1 : -1;
+    bodyPos = (ctx.chaserPosition + bodyDir + ctx.totalNodes) % ctx.totalNodes;
+  }
+
+  const triggerConfrontation = headPos === ctx.playerBoardPosition || bodyPos === ctx.playerBoardPosition;
 
   return {
-    move, direction: dir, triggerConfrontation, newChaserPos: targetPos,
+    move, direction: dir, triggerConfrontation, newChaserPos: headPos,
     specialEffect: move > 0
-      ? `轆轤首移動 ${move} 步（頭身分離）。`
+      ? `轆轤首移動 ${move} 步（頭：${headPos}，身：${bodyPos}）。`
       : '轆轤首被守護擋住。',
+    extraFlags: { chaserBodyPosition: bodyPos },
   };
 }
 
 /**
- * 亡者 (F): Moves 1 step. Ends turn by swapping a card with player hand.
+ * 亡者 (F): Moves 1 step. Each turn, swaps a random card from player's hand with one from discard pile.
  * Weak to 【咒】.
  */
 function chaseF(ctx: ChaserAIContext): ChaserAIResult {
@@ -189,10 +225,13 @@ function chaseF(ctx: ChaserAIContext): ChaserAIResult {
 
   const triggerConfrontation = targetPos === ctx.playerBoardPosition;
 
+  // Determine if a swap will happen (need at least 1 card in hand and 1 in discard)
+  const canSwap = ctx.player.handCardIds.length > 0 && ctx.discardCount > 0;
+
   return {
     move, direction: dir, triggerConfrontation, newChaserPos: targetPos,
     specialEffect: move > 0 ? '亡者緩慢逼近……' : '亡者被守護擋住。',
-    extraFlags: ctx.player.handCardIds.length > 0 ? { onlyEscapeCards: false } : undefined,
+    extraFlags: canSwap ? { onlyEscapeCards: false } : undefined,
   };
 }
 

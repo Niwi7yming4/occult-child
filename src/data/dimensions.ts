@@ -182,6 +182,27 @@ export interface GameDimensions {
   twist: Twist;
 }
 
+export type CoinDifficulty = 'easy' | 'normal' | 'hard';
+
+export interface CoinConfig {
+  startCoins: number;
+  earnInvestigateSuccess: [number, number]; // [min, max] coins on investigation success
+  earnInvestigateGreat: [number, number];   // [min, max] coins on great success
+  earnBondReward: [number, number];         // [min, max] coins from bond rewards
+  shopDiscount: number;                     // multiplier for shop prices
+}
+
+export function getCoinConfig(difficulty: CoinDifficulty): CoinConfig {
+  switch (difficulty) {
+    case 'easy':
+      return { startCoins: 10, earnInvestigateSuccess: [1, 2], earnInvestigateGreat: [2, 4], earnBondReward: [2, 3], shopDiscount: 0.8 };
+    case 'normal':
+      return { startCoins: 5, earnInvestigateSuccess: [0, 1], earnInvestigateGreat: [1, 2], earnBondReward: [1, 2], shopDiscount: 1.0 };
+    case 'hard':
+      return { startCoins: 2, earnInvestigateSuccess: [0, 0], earnInvestigateGreat: [0, 1], earnBondReward: [0, 1], shopDiscount: 1.2 };
+  }
+}
+
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }

@@ -4,7 +4,7 @@ export type Lang = 'zh' | 'en';
 
 type Dict = Record<string, string>;
 
-const cache: Record<Lang, Dict> = { zh: {} };
+const cache: Partial<Record<Lang, Dict>> = { zh: {} };
 
 export function tr(key: string, dict: Dict): string {
   return dict[key] ?? key;
@@ -14,8 +14,9 @@ async function loadLang(lang: Lang): Promise<Dict> {
   if (cache[lang]) return cache[lang];
   try {
     const mod = await import(`../lang/${lang}.json`);
-    cache[lang] = mod.default;
-    return cache[lang];
+    const loaded = mod.default as Dict;
+    cache[lang] = loaded;
+    return loaded;
   } catch {
     return {};
   }
@@ -24,13 +25,13 @@ async function loadLang(lang: Lang): Promise<Dict> {
 export interface I18nContextValue {
   lang: Lang;
   setLang: (l: Lang) => void;
-  t: (key: string, params?: Record<string, string | number>) => string;
+  t: (key?: string | null, params?: Record<string, string | number>) => string;
 }
 
 const I18nContext = createContext<I18nContextValue>({
   lang: 'zh',
   setLang: () => {},
-  t: (k: string) => k,
+  t: (k?: string | null) => k ?? '',
 });
 
 export function I18nProvider({ children }: { children: ReactNode }) {
@@ -51,7 +52,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     if (lang !== 'zh') loadLang(lang).then(d => setDict(d));
   }, []);
 
-  const t = useCallback((key: string, params?: Record<string, string | number>) => {
+  const t = useCallback((key?: string | null, params?: Record<string, string | number>) => {
+    if (!key) return '';
     if (lang === 'zh') return key;
     let val = dict[key] ?? key;
     if (params) {

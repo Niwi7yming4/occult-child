@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useGameStore } from '@/store/useGameStore';
 import { CHARACTERS } from '@/data/characters';
+import { CoinDifficulty } from '@/data/dimensions';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CharacterPortrait } from '@/components/art/CharacterPortrait';
 import AmbientParticles from '@/components/art/AmbientParticles';
@@ -17,13 +18,16 @@ const MENU_ITEMS = [
 export default function MenuPage() {
   const { startNewGame } = useGameStore();
   const { t, lang, setLang } = useI18n();
+  const { setCoinDifficulty, coinDifficulty } = useGameStore();
   const [selectedChar, setSelectedChar] = useState(CHARACTERS[0].id);
   const [phase, setPhase] = useState<'menu' | 'select' | 'lobby'>('menu');
+  const [diff, setDiff] = useState<CoinDifficulty>(coinDifficulty);
 
   const handleStart = () => {
     if (phase === 'menu') {
       setPhase('select');
     } else {
+      setCoinDifficulty(diff);
       startNewGame(selectedChar);
     }
   };
@@ -91,18 +95,33 @@ export default function MenuPage() {
         </div>
       </div>
 
-      {/* Main content — wood table surface */}
-      <div className="relative z-20 w-full max-w-5xl px-8 flex flex-col items-center">
+      {/* Main content — washi title sheet */}
+      <div className={`relative z-20 menu-scroll ${phase !== 'menu' ? 'is-selecting' : ''} flex flex-col items-center justify-center`}>
+        <div className="oil-lamp-prop" aria-hidden="true" />
+        <div className="reed-cluster" aria-hidden="true" />
+        {phase === 'menu' && (
+          <>
+            <div className="hanging-charm" aria-hidden="true" />
+            <div className="menu-landscape mb-5" aria-hidden="true">
+              <div className="menu-moon" />
+              <div className="menu-cloud" />
+              <div className="menu-rice" />
+              <div className="menu-village" />
+              <div className="menu-tree" />
+              <div className="menu-torii" />
+            </div>
+          </>
+        )}
 
         {/* Title */}
         <motion.div
           initial={{ opacity: 0, y: -30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1.2, ease: 'easeOut' }}
-          className="text-center mb-8"
+          className={`text-center ${phase === 'menu' ? 'mt-1 mb-6' : 'mt-1 mb-5'}`}
         >
           {/* Red seal stamp decorations */}
-          <div className="flex justify-center gap-2 mb-4 opacity-50">
+          <div className="flex justify-center gap-2 mb-2 opacity-45">
             <div className="w-12 h-12 border-2 border-[#B5382C] rounded-sm flex items-center justify-center text-[#B5382C] text-xs font-serif leading-tight text-center">
                {t('怪')}<br/>{t('談')}
              </div>
@@ -111,16 +130,16 @@ export default function MenuPage() {
              </div>
           </div>
 
-             <h1 className="font-serif font-black tracking-[0.4em] leading-none drop-shadow-[0_0_30px_rgba(181,56,44,0.5)]"
-             style={{ fontSize: 'clamp(5rem,12vw,10rem)', color: '#C84030', textShadow: '0 0 60px rgba(181,56,44,0.35), 2px 4px 8px rgba(0,0,0,0.8)' }}>
+             <h1 className="font-serif font-black menu-ink-title leading-none"
+             style={{ fontSize: phase === 'menu' ? 'clamp(4.4rem,10vw,8.6rem)' : 'clamp(2.8rem,6vw,4.2rem)' }}>
              {t('野孩子')}
            </h1>
 
-           <div className="text-[#C8A46A] font-serif tracking-[0.5em] text-sm mt-3 opacity-80">
+           <div className="text-[#3f3020] font-serif tracking-[0.35em] text-sm mt-1 opacity-80">
              {t('黃昏村怪談 ・ 箱庭探索 ・ 卡牌對峙')}
            </div>
  
-           <div className="mt-4 text-[#907060] italic tracking-widest text-sm font-serif">
+           <div className="mt-3 text-[#745b3a] italic tracking-widest text-sm font-serif">
              {t('「天快黑了，這次，你不是一個人。」')}
            </div>
         </motion.div>
@@ -143,17 +162,17 @@ export default function MenuPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              className="flex flex-col items-center gap-8"
+              className="flex flex-col items-center gap-5 w-full"
             >
               {/* Menu buttons — wood plank style */}
-              <div className="grid grid-cols-2 gap-3 w-72">
+              <div className="menu-card-grid grid grid-cols-2 md:grid-cols-4 gap-4">
                 {MENU_ITEMS.map((item, i) => (
                   <motion.button
                     key={item.label}
                     initial={{ opacity: 0, x: i % 2 === 0 ? -20 : 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.6 + i * 0.1 }}
-                    className={`btn-wood py-4 text-lg ${!item.enabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                    className={`btn-wood py-3.5 px-4 text-lg ${!item.enabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                     onClick={() => {
                       if (item.action === 'single') handleStart();
                       if (item.action === 'multi') setPhase('lobby');
@@ -170,7 +189,7 @@ export default function MenuPage() {
                  initial={{ opacity: 0 }}
                  animate={{ opacity: 0.45 }}
                  transition={{ delay: 1.2 }}
-                 className="text-[#907060] text-xs font-serif tracking-widest text-center"
+                 className="text-[#4f3925] text-xs font-serif tracking-widest text-center"
                >
                  {t('野孩子 1.0 ・ 黃昏村箱庭探索 Roguelike')}
                </motion.p>
@@ -179,13 +198,13 @@ export default function MenuPage() {
                <div className="flex gap-3 mt-2">
                  <button
                    onClick={() => setLang('zh')}
-                   className={`text-xs font-serif tracking-wider px-3 py-1 rounded transition-colors ${lang === 'zh' ? 'text-[#C8A46A] border border-[#C8A46A]/40' : 'text-[#5A4030]/60 hover:text-[#907060]'}`}
+                   className={`text-xs font-serif tracking-wider px-3 py-1 rounded transition-colors ${lang === 'zh' ? 'text-[#1f150c] border border-[#6c4a24]/40 bg-[#e2c892]/45' : 'text-[#5A4030]/60 hover:text-[#1f150c]'}`}
                  >
                    {t('中文')}
                  </button>
                  <button
                    onClick={() => setLang('en')}
-                   className={`text-xs font-serif tracking-wider px-3 py-1 rounded transition-colors ${lang === 'en' ? 'text-[#C8A46A] border border-[#C8A46A]/40' : 'text-[#5A4030]/60 hover:text-[#907060]'}`}
+                   className={`text-xs font-serif tracking-wider px-3 py-1 rounded transition-colors ${lang === 'en' ? 'text-[#1f150c] border border-[#6c4a24]/40 bg-[#e2c892]/45' : 'text-[#5A4030]/60 hover:text-[#1f150c]'}`}
                  >
                    EN
                  </button>
@@ -216,7 +235,7 @@ export default function MenuPage() {
                     className="cursor-pointer relative"
                     style={{ perspective: '800px' }}
                   >
-                    <div className={`panel-paper rounded p-5 flex flex-col items-center text-center transition-all duration-300 ${
+                    <div className={`panel-paper paper-choice-card rounded p-5 flex flex-col items-center text-center transition-all duration-300 ${
                       selectedChar === char.id
                         ? 'ring-2 ring-[#B5382C] shadow-[0_0_20px_rgba(181,56,44,0.45)] scale-105'
                         : 'opacity-80 hover:opacity-100 hover:scale-102'
@@ -269,9 +288,27 @@ export default function MenuPage() {
                 ))}
               </AnimatePresence>
 
+              {/* Coin difficulty selector */}
+              <div className="flex items-center justify-center gap-4 mb-6">
+                <span className="text-[#8B6030] text-xs font-serif tracking-wider">{t('古錢難度')}</span>
+                {(['easy', 'normal', 'hard'] as CoinDifficulty[]).map(d => (
+                  <button
+                    key={d}
+                    onClick={() => setDiff(d)}
+                    className={`px-4 py-1.5 text-xs font-serif rounded transition-all ${
+                      diff === d
+                        ? 'text-[#C8A46A] border border-[#C8A46A] bg-[#C8A46A]/10'
+                        : 'text-[#5A4030]/60 border border-transparent hover:text-[#907060]'
+                    }`}
+                  >
+                    {d === 'easy' ? t('寬裕') : d === 'normal' ? t('普通') : t('拮据')}
+                  </button>
+                ))}
+              </div>
+
               <div className="flex gap-4 justify-center">
                  <button className="btn-wood px-8 py-3 text-base" onClick={() => setPhase('menu')}>
-                   ← {t('返回')}
+                    ← {t('返回')}
                  </button>
                  <motion.button
                    whileTap={{ scale: 0.97 }}

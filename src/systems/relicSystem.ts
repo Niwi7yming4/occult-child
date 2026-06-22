@@ -155,6 +155,38 @@ export function computeRelicEffects(ctx: RelicContext): RelicEffectResult {
     res.messages.push('【村子的繪馬】: 【真】牌數字 +1。');
   }
 
+  // === Relic Chain Effects ===
+  const activeChain = ctx.activeChain;
+
+  // Chain 1 (Q1+Q7): 被記住的孩子 — Chaser A speed -1, divine charges +1
+  if (activeChain === '被記住的孩子') {
+    res.chaserSpeedMod -= 1;
+    res.messages.push('【記憶連鎖】被記住的孩子: 無面童子速度 -1。');
+  }
+
+  // Chain 2 (Q2+Q9): 水中的婚禮 — Water cards +2 in rain
+  if (activeChain === '水中的婚禮' && (environment === 'rain' || environment === 'fog')) {
+    res.cardNumberBonuses.push({ tag: '水', value: 2 });
+    res.messages.push('【記憶連鎖】水中的婚禮: 雨中【水】牌 +2。');
+  }
+
+  // Chain 3 (Q3+Q10): 被燒掉的樹 — Auto +1 distance each turn
+  if (activeChain === '被燒掉的樹') {
+    res.autoDistance = Math.max(res.autoDistance, 1);
+    res.messages.push('【記憶連鎖】被燒掉的樹: 距離每輪自動 +1。');
+  }
+
+  // Chain 5 (Q5+Q11): 斷頭的路標 — Chaser E speed halved
+  if (activeChain === '斷頭的路標') {
+    res.chaserSpeedMod -= 1;
+    res.messages.push('【記憶連鎖】斷頭的路標: 轆轤首速度減半。');
+  }
+
+  // Chain 6 (Q6+Q8): 狐狸的約定 — Chaser F no longer swaps cards
+  if (activeChain === '狐狸的約定') {
+    res.messages.push('【記憶連鎖】狐狸的約定: 亡者不再交換手牌。');
+  }
+
   return res;
 }
 

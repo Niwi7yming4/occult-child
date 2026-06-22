@@ -5,6 +5,7 @@ import { CHARACTERS } from '@/data/characters';
 import { CardArtwork } from '@/components/art/CardArtwork';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useI18n } from '@/lib/i18n';
+import { CONFRONTATION_FAIL_LANTERN_LOSS, CONFRONTATION_FAIL_FLEE_STEPS } from '@/systems/constants';
 
 const TAG_COLORS: Record<string, string> = {
   '守': '#5B90D8', '逃': '#5BA87A', '咒': '#9B72C8',
@@ -85,18 +86,18 @@ export default function ConfrontationModal({ open, onClose }: Props) {
 
   const handleFlee = () => {
     const { lanternCount, players, localPlayerId } = useGameStore.getState();
-    const newLanterns = Math.max(0, lanternCount - 1);
+    const newLanterns = Math.max(0, lanternCount - CONFRONTATION_FAIL_LANTERN_LOSS);
     useGameStore.setState({ lanternCount: newLanterns });
     const player = players.find(p => p.id === localPlayerId);
     if (player) {
       const totalNodes = useGameStore.getState().boardNodes.length;
       const fleeDir = Math.random() > 0.5 ? 1 : -1;
-      const newPos = (player.boardPosition + fleeDir * 2 + totalNodes) % totalNodes;
+      const newPos = (player.boardPosition + fleeDir * CONFRONTATION_FAIL_FLEE_STEPS + totalNodes) % totalNodes;
       useGameStore.setState({
         players: players.map(p => p.id === localPlayerId ? { ...p, boardPosition: newPos } : p)
       });
     }
-    addLog(t('你選擇逃跑……失去 1 燈火。'), 'danger');
+    addLog(t('你選擇逃跑……失去 2 燈火。'), 'danger');
     setPhase('fleeing');
     setTimeout(() => onClose(), 800);
   };

@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { Card, CARDS, BASIC_DECK_IDS, getCardById } from '../data/cards';
-import { GameDimensions, rollDimensions, CHASERS, TABOOS, DEITIES } from '../data/dimensions';
+import { GameDimensions, rollDimensions, CHASERS, TABOOS, DEITIES, CoinDifficulty, getCoinConfig } from '../data/dimensions';
 import { CHARACTERS } from '../data/characters';
-import { VILLAGERS, BondLevel } from '../data/villagers';
+import { VILLAGERS, BondLevel, HiddenCondition } from '../data/villagers';
 import { RELICS, checkRelicChain, RelicChain } from '../data/relics';
 import { EffectContext, EffectResult, BoardNodeSnapshot, getCardEffect, getFallbackTagEffect } from '../systems/cardEffects';
 import { BOARD_NODE_COUNT, DEFAULT_CHASER_THREAT, DEFAULT_HAND_LIMIT, SINGLE_PLAYER_AP, CONFRONTATION_RATES, CONFRONTATION_PUSH_BACK, CONFRONTATION_FAIL_LANTERN_LOSS, CONFRONTATION_FAIL_FLEE_STEPS, TIME_ORDER } from '../systems/constants';
@@ -14,6 +14,7 @@ import { getAtmosphere } from '../systems/atmosphereSystem';
 import { computeRelicEffects, evaluateRelicChain, RelicContext } from '../systems/relicSystem';
 import { evaluateHide, breathHoldFailed } from '../systems/hideSystem';
 import { getItemById } from '../data/items';
+import { soundManager } from '../systems/soundManager';
 
 export type GamePhase = 'menu' | 'setup' | 'explore' | 'battle' | 'victory' | 'defeat';
 export type TimeOfDay = 'afternoon' | 'dusk' | 'twilight' | 'night';
@@ -57,6 +58,15 @@ export interface BoardNode {
   isDecoy: boolean;
   isObstacle: boolean;
   isSafeZone: boolean;
+  isRelicNode: boolean;
+  flavorText?: string;
+}
+
+export interface InvestigationRecord {
+  tileId: number;
+  outcome: string;
+  relicId?: string;
+  turnFound: number;
 }
 
 export interface DiceResult {
@@ -97,11 +107,19 @@ export interface BattleFlags {
   extraDivineCharge: boolean;
   regenPerTurn: boolean;
   ghostCardsActive: boolean;
+  blurredCards: boolean;
+  chaserBodyPosition: number;
+  foxPeekUsed: boolean;
+  seeInDark: boolean;
 }
 
 interface GameStore {
   phase: GamePhase;
   showNightTransition: boolean;
+  showTwistTransition: boolean;
+  pendingTwist: { name: string; phase1Effect: string; id: string } | null;
+  showMemoryFlashback: boolean;
+  flashbackChain: { name: string; effect: string } | null;
   currentDimensions: GameDimensions | null;
 
   players: PlayerState[];
@@ -114,6 +132,7 @@ interface GameStore {
   jizoVisited: number;
   tabooViolations: number;
   villagerBonds: Record<string, BondLevel>;
+  villagerQuestProgress: Record<string, number>;
   inventory: string[];
   isHiding: boolean;
   breathHoldTurns: number;
@@ -134,7 +153,7 @@ interface GameStore {
   playingCard: Card | null;
   pendingTabooCheck: boolean;
   lastTabooResult: TabooResult | null;
-  investigationResult: { outcome: string; label: string; relicName?: string } | null;
+  investigationResult: { outcome: string; label: string; relicName?: string; coinsEarned?: number } | null;
   bondReward: { villagerName: string; level: number; message: string; reward?: string } | null;
   lastPlayedNumber: number | null;
   playedTagsThisVictory: string[];
@@ -143,10 +162,17 @@ interface GameStore {
   maxDivineCharges: number;
   battleFlags: BattleFlags;
   lastChaserMove: number;
+  battleActionsRemaining: number;
+  pendingVillagerAssistCooldown: number;
+  imbalanceCount: number;
+  imbalanceDecayCounter: number;
+  revealedIdentities: Record<string, boolean>;
 
   deckIds: string[];
   discardIds: string[];
   availableRelicIds: string[];
+  coinDifficulty: CoinDifficulty;
+  investigationRecords: InvestigationRecord[];
 
   pendingDice: DiceResult | null;
   showDiceModal: boolean;
@@ -173,18 +199,25 @@ interface GameStore {
   dismissTabooCheck: () => void;
   clearPlayingCard: () => void;
   dismissNightTransition: () => void;
+  dismissTwistTransition: () => void;
+  dismissMemoryFlashback: () => void;
   dismissInvestigationResult: () => void;
   dismissBondReward: () => void;
 
   visitShop: () => void;
   buyItem: (itemId: string) => void;
+  sellItem: (itemId: string) => void;
   closeShop: () => void;
 
   restAtShrine: () => void;
   useItem: (itemId: string) => void;
+  giveGift: (villagerId: string, itemId: string) => void;
 
   moveOnBoard: (steps: number) => void;
+  teleportToEntrance: () => void;
+  freePeek: (nodeId: number) => void;
   playCard: (cardId: string) => void;
+  investigateNode: (nodeId: number) => void;
   handleConfrontation: (cardId: string) => void;
   invokeDivine: () => void;
   declareVictory: () => void;
@@ -197,6 +230,9 @@ interface GameStore {
   investigateRelic: (relicId: string) => void;
 
   addLog: (text: string, type?: LogEntry['type']) => void;
+  applyImbalance: (amount: number) => void;
+  setCoinDifficulty: (d: CoinDifficulty) => void;
+  earnCoins: (amount: number) => void;
 
   // Tutorial
   startTutorial: (steps: TutorialStep[]) => void;
@@ -216,40 +252,141 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 function buildInitialDeck(characterId: string): string[] {
-  const base = shuffle(BASIC_DECK_IDS);
-  return base.slice(0, 24);
+  return shuffle(BASIC_DECK_IDS);
 }
 
-function buildInitialMap(): MapTile[] {
-  const types: MapTile['type'][] = ['grass', 'water', 'road', 'building', 'shrine', 'tree', 'mountain', 'bridge'];
-  const labels = ['Rice Field', 'Old Well', 'Crossroads', 'Shrine Gate', 'Bamboo Grove', 'Red Bridge', 'Abandoned Hut', 'Dark Pond', 'Stone Path', 'Fox Den', 'Sacred Tree', 'Broken Cart', 'Grave Mound'];
+function buildInitialMap(layoutId?: string): MapTile[] {
   const tileCount = 13;
+
+  // Layout-specific configurations
+  const layouts: Record<string, { types: MapTile['type'][]; labels: string[]; jizo: number[]; items: number[]; hidden: number[]; connections: number[][] }> = {
+    // A: 水鄉澤田 — water-heavy, bridges, linear
+    A: {
+      types: ['water', 'bridge', 'grass', 'water', 'road', 'water', 'bridge', 'grass', 'water', 'road', 'bridge', 'water', 'grass'],
+      labels: ['水田', '木橋', '草地', '池塘', '小徑', '河岸', '石橋', '蘆葦', '沼澤', '田埂', '吊橋', '蓮池', '草叢'],
+      jizo: [2, 8, 11],
+      items: [1, 5, 9],
+      hidden: [4, 7, 12],
+      connections: [[1], [0, 2, 3], [1, 4], [1, 5], [2, 6], [3, 7], [4, 8], [5, 9], [6, 10], [7, 11], [8, 12], [9, 12], [10, 11]],
+    },
+    // B: 山邊荒村 — mountains, elevation, winding path
+    B: {
+      types: ['mountain', 'road', 'tree', 'mountain', 'building', 'road', 'mountain', 'tree', 'road', 'mountain', 'building', 'road', 'mountain'],
+      labels: ['山路', '石階', '松林', '崖壁', '山屋', '山腰', '岩壁', '竹林', '山路', '峰頂', '祠堂', '山道', '山頂'],
+      jizo: [3, 8, 12],
+      items: [1, 6, 10],
+      hidden: [2, 5, 9],
+      connections: [[1], [0, 2], [1, 3], [2, 4], [3, 5], [4, 6], [5, 7], [6, 8], [7, 9], [8, 10], [9, 11], [10, 12], [11]],
+    },
+    // C: 神社參道 — straight path with branches
+    C: {
+      types: ['shrine', 'road', 'road', 'road', 'tree', 'road', 'building', 'road', 'road', 'road', 'tree', 'road', 'shrine'],
+      labels: ['鳥居', '參道', '石燈', '手水', '楓林', '繪馬', '社務所', '賽錢', '神木', '御手洗', '竹林', '石碑', '本殿'],
+      jizo: [2, 7, 11],
+      items: [3, 6, 9],
+      hidden: [4, 10, 12],
+      connections: [[1], [0, 2, 4], [1, 3], [2, 5], [1, 6], [3, 7], [4, 8], [5, 9], [6, 10], [7, 11], [8, 12], [9, 12], [10]],
+    },
+    // D: 廢棄校舍 — rooms and corridors
+    D: {
+      types: ['building', 'road', 'building', 'road', 'building', 'road', 'building', 'road', 'building', 'road', 'building', 'road', 'building'],
+      labels: ['門廳', '走廊', '教室A', '走廊', '教室B', '走廊', '體育館', '走廊', '圖書室', '走廊', '音樂室', '走廊', '屋頂'],
+      jizo: [0, 6, 12],
+      items: [2, 8, 10],
+      hidden: [3, 5, 9],
+      connections: [[1], [0, 2, 4], [1, 3], [2, 5], [1, 5], [3, 4, 6, 8], [5, 7, 9], [6, 10], [5, 9], [6, 8, 10, 12], [9, 11], [10, 12], [9, 11]],
+    },
+    // E: 三途集市 — open square with surrounding stalls
+    E: {
+      types: ['building', 'building', 'building', 'road', 'grass', 'road', 'building', 'building', 'building', 'road', 'grass', 'road', 'building'],
+      labels: ['刀具攤', '藥師攤', '面具攤', '廣場', '篝火', '廣場', '布莊', '骨董攤', '面具攤', '廣場', '祭壇', '廣場', '鳥居'],
+      jizo: [4, 10, 12],
+      items: [0, 7, 9],
+      hidden: [2, 5, 11],
+      connections: [[1, 3], [0, 2, 4], [1, 5], [0, 4, 6], [1, 3, 5, 7], [2, 4, 8], [3, 7, 9], [4, 6, 8, 10], [5, 7, 11], [6, 10, 12], [7, 9, 11], [8, 10, 12], [9, 11]],
+    },
+  };
+
+  // Default layout if ID not found
+  const layout = layouts[layoutId ?? 'C'] ?? layouts.C;
+
   return Array.from({ length: tileCount }, (_, i) => ({
     id: i,
-    type: types[i % types.length],
-    label: labels[i % labels.length],
-    hasJizo: [2, 6, 10].includes(i),
-    hasItem: [1, 4, 8, 11].includes(i),
-    isHidden: [5, 9, 12].includes(i),
-    connectedTo: i === 0
-      ? [1, 2]
-      : i === tileCount - 1
-      ? [i - 1, i - 2]
-      : [i - 1, i + 1],
+    type: layout.types[i],
+    label: layout.labels[i],
+    hasJizo: layout.jizo.includes(i),
+    hasItem: layout.items.includes(i),
+    isHidden: layout.hidden.includes(i),
+    connectedTo: layout.connections[i] ?? [],
   }));
 }
 
-function buildBattleBoard(): BoardNode[] {
+function buildBattleBoard(records: InvestigationRecord[] = []): BoardNode[] {
   const cardPool = shuffle(BASIC_DECK_IDS);
-  return Array.from({ length: BOARD_NODE_COUNT }, (_, i) => ({
+  const nodes: BoardNode[] = Array.from({ length: BOARD_NODE_COUNT }, (_, i) => ({
     id: i,
-    cardId: cardPool[i] || null,
-    isFaceDown: i % 3 !== 0,
+    cardId: null,
+    isFaceDown: true,
     isGuard: false,
     isDecoy: false,
     isObstacle: false,
     isSafeZone: false,
+    isRelicNode: false,
   }));
+
+  // Place investigation records as face-up nodes at spread positions with flavor text
+  const recordCount = Math.min(records.length, BOARD_NODE_COUNT - 2);
+  const step = Math.floor(BOARD_NODE_COUNT / (recordCount + 1));
+  for (let r = 0; r < recordCount; r++) {
+    const nodeIdx = (r + 1) * step;
+    const record = records[r];
+    const poolIdx = r < cardPool.length ? r : 0;
+    const flavorByOutcome: Record<string, string> = {
+      great_success: '此地藏有秘寶痕跡……',
+      success: '你記得這個地方。熟悉感湧上心頭。',
+      failure: '什麼都沒有。但這片寂靜似曾相識。',
+    };
+    nodes[nodeIdx] = {
+      ...nodes[nodeIdx],
+      cardId: cardPool[poolIdx] || null,
+      isFaceDown: false,
+      isRelicNode: !!record.relicId,
+      flavorText: flavorByOutcome[record.outcome] ?? '探索的記憶在此交匯。',
+    };
+  }
+
+  // Fill remaining empty nodes from the deck
+  let deckIdx = recordCount;
+  for (let i = 0; i < BOARD_NODE_COUNT; i++) {
+    if (!nodes[i].cardId && deckIdx < cardPool.length) {
+      nodes[i] = { ...nodes[i], cardId: cardPool[deckIdx++] };
+    }
+  }
+
+  // Assign special nodes (randomly, not on record-placed nodes)
+  const eligibleIndices = nodes
+    .map((n, i) => (n.isFaceDown ? i : -1))
+    .filter(i => i >= 0);
+  const shuffledEligible = shuffle([...eligibleIndices]);
+
+  // 1-2 safe zones (rest without triggering chaser)
+  const safeCount = 1 + Math.floor(Math.random() * 2);
+  for (let s = 0; s < safeCount && s < shuffledEligible.length; s++) {
+    nodes[shuffledEligible[s]] = { ...nodes[shuffledEligible[s]], isSafeZone: true };
+  }
+
+  // 1-2 guard nodes (chaser patrols nearby)
+  const guardCount = 1 + Math.floor(Math.random() * 2);
+  for (let g = 0; g < guardCount && g + safeCount < shuffledEligible.length; g++) {
+    nodes[shuffledEligible[g + safeCount]] = { ...nodes[shuffledEligible[g + safeCount]], isGuard: true };
+  }
+
+  // 1-3 obstacle nodes (must be overcome to proceed)
+  const obstacleCount = 1 + Math.floor(Math.random() * 3);
+  for (let o = 0; o < obstacleCount && o + safeCount + guardCount < shuffledEligible.length; o++) {
+    nodes[shuffledEligible[o + safeCount + guardCount]] = { ...nodes[shuffledEligible[o + safeCount + guardCount]], isObstacle: true };
+  }
+  return nodes;
 }
 
 function drawCards(deck: string[], discard: string[], count: number): { drawn: string[]; newDeck: string[]; newDiscard: string[] } {
@@ -291,13 +428,17 @@ const defaultBattleFlags = (): BattleFlags => ({
   extraDivineCharge: false,
   regenPerTurn: false,
   ghostCardsActive: false,
+  blurredCards: false,
+  chaserBodyPosition: -1,
+  foxPeekUsed: false,
+  seeInDark: false,
 });
 
 const initialPlayer = (characterId: string): PlayerState => ({
   id: 'player1',
   characterId,
-  hp: 20,
-  maxHp: 20,
+  hp: 5,
+  maxHp: 5,
   apUsed: 0,
   mapPosition: 0,
   handCardIds: [],
@@ -313,6 +454,10 @@ const initialPlayer = (characterId: string): PlayerState => ({
 export const useGameStore = create<GameStore>((set, get) => ({
   phase: 'menu',
   showNightTransition: false,
+  showTwistTransition: false,
+  pendingTwist: null,
+  showMemoryFlashback: false,
+  flashbackChain: null,
   currentDimensions: null,
 
   players: [],
@@ -325,6 +470,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   jizoVisited: 0,
   tabooViolations: 0,
   villagerBonds: Object.fromEntries(VILLAGERS.map(v => [v.id, 0 as BondLevel])),
+  villagerQuestProgress: Object.fromEntries(VILLAGERS.map(v => [v.id, 0])),
   inventory: [],
   isHiding: false,
   breathHoldTurns: 0,
@@ -336,8 +482,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   boardNodes: buildBattleBoard(),
   chaserPosition: 7,
   chaserThreat: DEFAULT_CHASER_THREAT,
-  lanternCount: 10,
-  maxLanterns: 10,
+  lanternCount: 5,
+  maxLanterns: 5,
   turnNumber: 1,
   environment: 'clear',
   victoryProgress: 0,
@@ -354,10 +500,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
   maxDivineCharges: 1,
   battleFlags: defaultBattleFlags(),
   lastChaserMove: 0,
+  battleActionsRemaining: 1,
+  pendingVillagerAssistCooldown: 0,
+  imbalanceCount: 0,
+  imbalanceDecayCounter: 0,
+  revealedIdentities: {},
 
   deckIds: buildInitialDeck('jizo'),
   discardIds: [],
   availableRelicIds: [],
+  coinDifficulty: 'normal',
+  investigationRecords: [],
 
   pendingDice: null,
   showDiceModal: false,
@@ -370,14 +523,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   startNewGame: (characterId = 'jizo') => {
     const dims = rollDimensions();
+    const { coinDifficulty } = get();
+    const coinCfg = getCoinConfig(coinDifficulty);
     const deck = buildInitialDeck(characterId);
     const { drawn, newDeck } = drawCards(deck, [], 5);
-    const player = initialPlayer(characterId);
+    const player = { ...initialPlayer(characterId), coins: coinCfg.startCoins };
     player.handCardIds = drawn;
 
     // Apply initial character bonuses
     const charBonus = CHARACTERS.find(c => c.id === characterId);
-    const handLimit = charBonus?.id === 'jizo' ? DEFAULT_HAND_LIMIT + 1 : DEFAULT_HAND_LIMIT;
+    let handLimit = charBonus?.id === 'jizo' ? DEFAULT_HAND_LIMIT + 1 : DEFAULT_HAND_LIMIT;
+    // Apply deity hand limit bonus (Deity F: +2)
+    if (dims.deity?.id === 'F') handLimit += 2;
     const divineInit = dims.deity ? (charBonus?.id === 'miko' ? 2 : 1) : 0;
     player.handLimit = handLimit;
 
@@ -392,19 +549,28 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       phase: 'setup',
       showNightTransition: false,
+      showTwistTransition: false,
+      pendingTwist: null,
+      showMemoryFlashback: false,
+      flashbackChain: null,
       currentDimensions: dims,
       players: [player],
       deckIds: newDeck,
       discardIds: [],
-      mapTiles: buildInitialMap(),
+      mapTiles: buildInitialMap(dims.map.id),
       boardNodes: buildBattleBoard(),
       jizoVisited: 0,
       tabooViolations: 0,
       villagerBonds: initialBonds,
+      villagerQuestProgress: Object.fromEntries(VILLAGERS.map(v => [v.id, 0])),
+      pendingVillagerAssistCooldown: 0,
+      imbalanceCount: 0,
+      imbalanceDecayCounter: 0,
+      revealedIdentities: {},
       chaserPosition: 7,
       chaserThreat: DEFAULT_CHASER_THREAT,
-      lanternCount: 10,
-      maxLanterns: 10,
+      lanternCount: 5,
+      maxLanterns: 5,
       turnNumber: 1,
       environment: 'clear',
       victoryProgress: 0,
@@ -418,6 +584,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       maxDivineCharges: divineInit,
       battleFlags: defaultBattleFlags(),
       lastChaserMove: 0,
+      battleActionsRemaining: 1,
       inventory: [],
       isHiding: false,
       breathHoldTurns: 0,
@@ -431,6 +598,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       bondReward: null,
       showShopModal: false,
       availableRelicIds: shuffle(['Q1','Q2','Q3','Q4','Q5','Q6','Q7','Q8','Q9','Q10','Q11','Q12','Q13','Q14','Q15','Q16','Q17','Q18']).slice(0, 6),
+      investigationRecords: [],
     });
 
     get().addLog('A new game begins. The village stirs with secrets...', 'system');
@@ -449,15 +617,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   proceedToBattle: () => {
+    const { investigationRecords } = get();
+    const boardNodes = buildBattleBoard(investigationRecords);
     get().addLog('Night falls! The chaser stirs... Battle begins!', 'danger');
-    set({ phase: 'battle', timeOfDay: 'night', showNightTransition: true });
+    soundManager.play('night_fall');
+    set({ phase: 'battle', timeOfDay: 'night', showNightTransition: true, boardNodes });
     // Auto-start battle tutorial for first-time players
     if (!get().hasSeenTutorial()) {
       set({ activeTutorial: BATTLE_TUTORIAL, tutorialIndex: 0 });
     }
   },
 
-  dismissNightTransition: () => set({ showNightTransition: false }),
+  dismissNightTransition: () => set({ showNightTransition: false, battleActionsRemaining: 1 }),
+  dismissTwistTransition: () => set({ showTwistTransition: false, pendingTwist: null }),
+  dismissMemoryFlashback: () => set({ showMemoryFlashback: false, flashbackChain: null }),
 
   movePlayer: (tileId) => {
     const { players, apRemaining, mapTiles, localPlayerId, jizoVisited, timeOfDay, currentDimensions, tabooViolations } = get();
@@ -470,12 +643,34 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const prevPos = player.mapPosition;
     const backtracked = prevPos === tileId;
 
+    // Calculate AP cost based on map layout
+    const mapId = currentDimensions?.map.id ?? 'C';
+    let apCost = 1;
+    if (mapId === 'A') {
+      // 水鄉澤田: Water tiles cost 0 AP, bridge/ground costs 1.
+      apCost = tile.type === 'water' ? 0 : 1;
+    } else if (mapId === 'B') {
+      // 山邊荒村: Mountain tiles cost 2 AP.
+      apCost = tile.type === 'mountain' ? 2 : 1;
+    } else if (mapId === 'D') {
+      // 廢棄校舍: Corridors/roads are quick to cross.
+      apCost = tile.type === 'road' ? 0 : 1;
+    }
+
+    // Fox character bonus: movement costs 1 less AP (minimum 0).
+    if (player.characterId === 'fox') apCost = Math.max(0, apCost - 1);
+
+    if (apRemaining < apCost) {
+      get().addLog(`Not enough AP to move to ${tile.label}.`, 'warning');
+      return;
+    }
+
     // Check explore-phase taboos
     const tabooCtx: TabooCheckContext = {
       dims: currentDimensions,
       lastPlayedNumber: null,
       currentCardNumber: 0,
-      apSpentThisTurn: player.apUsed + 1,
+      apSpentThisTurn: player.apUsed + apCost,
       boardMoveSteps: 0,
       backtracked,
       handCardCount: player.handCardIds.length,
@@ -486,16 +681,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
       currentTileType: tile.type,
     };
     const tabooResult = checkExploreTaboo(tabooCtx);
-    const newTabooViolations = tabooViolations + (tabooResult.triggered ? 1 : 0);
+
+    if (tabooResult.triggered) {
+      soundManager.play('taboo');
+    }
 
     const updated = players.map(p =>
       p.id === localPlayerId ? {
         ...p,
         mapPosition: tileId,
-        apUsed: p.apUsed + 1,
+        apUsed: p.apUsed + apCost,
       } : p
     );
-    const newAp = apRemaining - 1;
+    const newAp = apRemaining - apCost;
 
     // Apply lantern loss from taboo
     let newLanterns = get().lanternCount;
@@ -503,13 +701,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
       newLanterns = Math.max(0, newLanterns - tabooResult.penalty.lanternLoss);
     }
 
-    set({ players: updated, apRemaining: newAp, tabooViolations: newTabooViolations, lanternCount: newLanterns });
+    set({ players: updated, apRemaining: newAp, tabooViolations: get().tabooViolations + (tabooResult.triggered ? 1 : 0), lanternCount: newLanterns });
 
     get().addLog(`Moved to ${tile.label}. AP: ${newAp}.`, 'info');
 
     if (tabooResult.triggered) {
+      get().applyImbalance(tabooResult.penalty.imbalance);
       tabooResult.messages.forEach(m => get().addLog(m, 'danger'));
       set({ pendingTabooCheck: true, lastTabooResult: tabooResult });
+    }
+
+    // 20% chance to find coins when moving to a tile
+    if (!tile.isHidden && Math.random() < 0.2) {
+      const coinCfg = getCoinConfig(get().coinDifficulty);
+      const found = Math.floor(Math.random() * (coinCfg.earnInvestigateSuccess[1] - coinCfg.earnInvestigateSuccess[0] + 1)) + coinCfg.earnInvestigateSuccess[0];
+      if (found > 0) get().earnCoins(found);
     }
 
     if (tile.hasJizo && !player.ownedRelicIds.includes(`jizo_${tileId}`)) {
@@ -551,16 +757,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (next === 'night') {
         get().proceedToBattle();
       } else {
-        set({ timeOfDay: next, apRemaining: 4 });
+        const apPerTime: Record<string, number> = { afternoon: 5, dusk: 5, twilight: 4 };
+        set({ timeOfDay: next, apRemaining: apPerTime[next] ?? 4 });
         get().addLog(`Time passes... The sky shifts to ${next}.`, 'info');
         // Trigger mid-game twist at specific time
         const twist = currentDimensions?.twist;
         if (twist) {
+          let twistTriggered = false;
           if (twist.trigger.includes('薄暮開始時') && next === 'dusk') {
-            get().addLog(`Twist activated: ${twist.name} - ${twist.phase1Effect}`, 'system');
+            twistTriggered = true;
           }
           if ((twist.trigger.includes('黃昏結束時') || twist.trigger.includes('黃昏開始時')) && next === 'twilight') {
+            twistTriggered = true;
+          }
+          if (twistTriggered) {
             get().addLog(`Twist activated: ${twist.name} - ${twist.phase1Effect}`, 'system');
+            set({ showTwistTransition: true, pendingTwist: { name: twist.name, phase1Effect: twist.phase1Effect, id: twist.id } });
+            // Coin bonus on twist activation
+            const coinCfg = getCoinConfig(get().coinDifficulty);
+            const twistCoins = Math.floor(Math.random() * 3) + 1;
+            get().earnCoins(twistCoins);
           }
         }
       }
@@ -582,14 +798,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   startBreathCheck: () => {
-    const { isHiding, breathHoldTurns, environment, players, localPlayerId, chaserPosition } = get();
+    const { isHiding, breathHoldTurns, environment, players, localPlayerId, chaserPosition, currentDimensions, mapTiles } = get();
     if (!isHiding) return;
 
     const player = players.find(p => p.id === localPlayerId);
     if (!player) return;
     const chaserDistance = Math.abs(chaserPosition - player.boardPosition);
 
-    const ctx = { chaserDistance, environment, hasFog: environment === 'fog', tileHasBuilding: false, breathHeldTurns: breathHoldTurns + 1 };
+    const currentTile = mapTiles.find(t => t.id === player.mapPosition);
+    const tileHasBuilding = currentTile?.type === 'building' || currentTile?.type === 'shrine';
+    const ctx = { chaserDistance, environment, hasFog: environment === 'fog', tileHasBuilding, breathHeldTurns: breathHoldTurns + 1, deityId: currentDimensions?.deity.id };
     const result = evaluateHide(ctx);
     if (!result.canHide) return;
 
@@ -640,12 +858,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   visitShop: () => {
-    const { players, localPlayerId, mapTiles } = get();
+    const { players, localPlayerId, mapTiles, currentDimensions } = get();
     const player = players.find(p => p.id === localPlayerId);
     if (!player) return;
     const tile = mapTiles.find(t => t.id === player.mapPosition);
     if (tile?.type !== 'building' && tile?.type !== 'shrine') {
       get().addLog('There is no shop here. Find a building or shrine.', 'warning');
+      return;
+    }
+    const atmosphere = getAtmosphere(currentDimensions?.atmosphere.id ?? 'B');
+    if (!atmosphere.shopOpen) {
+      get().addLog('The shop is closed in this village atmosphere.', 'warning');
       return;
     }
     set({ showShopModal: true });
@@ -677,8 +900,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
       apRemaining: s.apRemaining - 1,
     }));
     get().addLog(`Purchased ${item.name} for ${price} coins.`, 'success');
+    // Track fishmonger quest progress
+    set(s => ({ villagerQuestProgress: { ...s.villagerQuestProgress, fishmonger: Math.min(VILLAGERS.find(v => v.id === 'fishmonger')!.hiddenCondition.target, (s.villagerQuestProgress.fishmonger ?? 0) + 1) } }));
   },
 
+  sellItem: (itemId) => {
+    const { inventory, players, localPlayerId, apRemaining } = get();
+    if (apRemaining <= 0) return;
+    if (!inventory.includes(itemId)) return;
+    const item = getItemById(itemId);
+    if (!item) return;
+    const sellPrice = Math.max(1, Math.floor(item.price * 0.5));
+    set(s => ({
+      players: s.players.map(p => p.id === s.localPlayerId ? { ...p, coins: p.coins + sellPrice } : p),
+      inventory: s.inventory.filter(id => id !== itemId),
+      apRemaining: s.apRemaining - 1,
+    }));
+    get().addLog(`Sold ${item.name} for ${sellPrice} coins.`, 'success');
+  },
   closeShop: () => set({ showShopModal: false }),
 
   restAtShrine: () => {
@@ -691,6 +930,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       get().addLog('Cannot rest here. Find a shrine to pray at.', 'warning');
       return;
     }
+    // Track shrine_maiden quest progress
+    set(s => ({ villagerQuestProgress: { ...s.villagerQuestProgress, shrine_maiden: Math.min(VILLAGERS.find(v => v.id === 'shrine_maiden')!.hiddenCondition.target, (s.villagerQuestProgress.shrine_maiden ?? 0) + 1) } }));
 
     const deityId = get().currentDimensions?.deity.id;
     const healAmount = deityId === 'A' ? 4 : 2;
@@ -712,12 +953,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const newInv = state.inventory.filter(id => id !== itemId);
 
     switch (item.effect) {
-      case 'heals3': {
+      case 'heals3':
+      case 'heals5': {
+        const healAmount = item.effect === 'heals5' ? 5 : 3;
         const updated = state.players.map(p =>
-          p.id === state.localPlayerId ? { ...p, hp: Math.min(p.maxHp, p.hp + 3) } : p
+          p.id === state.localPlayerId ? { ...p, hp: Math.min(p.maxHp, p.hp + healAmount) } : p
         );
         set({ players: updated, inventory: newInv });
-        get().addLog('Used medicine. Healed 3 HP!', 'success');
+        get().addLog(`Used medicine. Healed ${healAmount} HP!`, 'success');
         break;
       }
       case '+1AP': {
@@ -739,8 +982,41 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 
+  giveGift: (villagerId, itemId) => {
+    const state = get();
+    if (!state.inventory.includes(itemId)) return;
+    const vill = VILLAGERS.find(v => v.id === villagerId);
+    if (!vill) return;
+    const item = getItemById(itemId);
+    if (!item) return;
+
+    const newInv = state.inventory.filter(id => id !== itemId);
+    const currentBond = state.villagerBonds[villagerId] ?? 0;
+
+    // Determine bond change based on preferences
+    let bondDelta = 1;
+    if (vill.likedGifts.includes(item.name)) {
+      bondDelta = 2;
+      get().addLog(`${vill.name} loves ${item.name}! Bond increased more.`, 'success');
+    } else if (vill.dislikedGifts.includes(item.name)) {
+      bondDelta = -1;
+      get().addLog(`${vill.name} dislikes ${item.name}... Bond decreased.`, 'warning');
+    } else {
+      get().addLog(`Gave ${item.name} to ${vill.name}.`, 'info');
+    }
+
+    const newBond = Math.max(0, Math.min(4, currentBond + bondDelta)) as BondLevel;
+    set({ inventory: newInv, villagerBonds: { ...state.villagerBonds, [villagerId]: newBond } });
+
+    if (newBond > currentBond) {
+      get().addLog(`Bond with ${vill.name} increased to Lv.${newBond}!`, 'success');
+    } else if (newBond < currentBond) {
+      get().addLog(`Bond with ${vill.name} decreased to Lv.${newBond}.`, 'warning');
+    }
+  },
+
   investigateTile: (tileId) => {
-    const { mapTiles, apRemaining, availableRelicIds } = get();
+    const { mapTiles, apRemaining, availableRelicIds, turnNumber, coinDifficulty } = get();
     if (apRemaining <= 0) return;
     const tile = mapTiles.find(t => t.id === tileId);
     if (!tile) return;
@@ -751,34 +1027,62 @@ export const useGameStore = create<GameStore>((set, get) => ({
     );
     set({ mapTiles: updated, apRemaining: apRemaining - 1 });
 
+    const coinCfg = getCoinConfig(coinDifficulty);
+
+    function randRange(min: number, max: number): number {
+      if (min === 0 && max === 0) return 0;
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    // Record for battle board node generation
+    const record: InvestigationRecord = { tileId: tile.id, outcome: result.outcome, turnFound: turnNumber };
+
     if (result.outcome === 'great_success') {
       get().addLog(`Great success! Found something incredible at ${tile.label}!`, 'success');
       const relicId = availableRelicIds[0];
+      const coins = randRange(coinCfg.earnInvestigateGreat[0], coinCfg.earnInvestigateGreat[1]);
+      if (coins > 0) get().earnCoins(coins);
       if (relicId) {
         set(s => ({ availableRelicIds: s.availableRelicIds.slice(1) }));
         get().acquireRelic(relicId);
         const relicName = RELICS.find(r => r.id === relicId)?.name ?? relicId;
-        set({ investigationResult: { outcome: 'great_success', label: tile.label, relicName } });
+        set({ investigationResult: { outcome: 'great_success', label: tile.label, relicName, coinsEarned: coins } });
+        set(s => ({ investigationRecords: [...s.investigationRecords, { ...record, relicId }] }));
       } else {
-        set({ investigationResult: { outcome: 'great_success', label: tile.label } });
+        set({ investigationResult: { outcome: 'great_success', label: tile.label, coinsEarned: coins } });
+        set(s => ({ investigationRecords: [...s.investigationRecords, record] }));
       }
     } else if (result.outcome === 'success') {
       get().addLog(`Found some clues at ${tile.label}.`, 'success');
-      set({ investigationResult: { outcome: 'success', label: tile.label } });
+      const coins = randRange(coinCfg.earnInvestigateSuccess[0], coinCfg.earnInvestigateSuccess[1]);
+      if (coins > 0) get().earnCoins(coins);
+      set({ investigationResult: { outcome: 'success', label: tile.label, coinsEarned: coins } });
+      set(s => ({ investigationRecords: [...s.investigationRecords, record] }));
     } else {
       get().addLog(`Found nothing at ${tile.label}.`, 'warning');
       set({ investigationResult: { outcome: 'failure', label: tile.label } });
     }
+
+    // Track villager hidden condition quest progress
+    const tileType = tile.type;
+    if (tileType === 'building') {
+      set(s => ({ villagerQuestProgress: { ...s.villagerQuestProgress, headman: Math.min(VILLAGERS.find(v => v.id === 'headman')!.hiddenCondition.target, (s.villagerQuestProgress.headman ?? 0) + 1) } }));
+    }
+    if (tileType === 'mountain') {
+      set(s => ({ villagerQuestProgress: { ...s.villagerQuestProgress, woodcutter: Math.min(VILLAGERS.find(v => v.id === 'woodcutter')!.hiddenCondition.target, (s.villagerQuestProgress.woodcutter ?? 0) + 1) } }));
+    }
+    if (tile.isHidden && result.outcome !== 'failure') {
+      set(s => ({ villagerQuestProgress: { ...s.villagerQuestProgress, child: Math.min(VILLAGERS.find(v => v.id === 'child')!.hiddenCondition.target, (s.villagerQuestProgress.child ?? 0) + 1) } }));
+    }
   },
 
   talkToVillager: (villagerId) => {
-    const { villagerBonds, apRemaining, timeOfDay, currentDimensions, tabooViolations } = get();
+    const { villagerBonds, apRemaining, timeOfDay, currentDimensions } = get();
     if (apRemaining <= 0) return;
 
     // Check taboo F: No Night Words
-    let newTabooViolations = tabooViolations;
     if (currentDimensions?.taboo.id === 'F' && (timeOfDay === 'twilight' || timeOfDay === 'night')) {
-      newTabooViolations += 1;
+      get().applyImbalance(1);
       get().addLog('Taboo broken: speaking with villagers after dark!', 'danger');
       set({
         pendingTabooCheck: true,
@@ -799,17 +1103,42 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     // Atmosphere affects max bond achievable
     const maxBond = (atmosphereId === 'D' && atmEffect.initialBondBonus < 0) ? 3 : 4;
-    const newLevel = Math.min(maxBond, current + actualIncrease) as BondLevel;
     const vill = VILLAGERS.find(v => v.id === villagerId);
+
+    // Check if Lv.4 hidden condition is met
+    let conditionMet = false;
+    if (vill && current >= 3) {
+      switch (vill.hiddenCondition.type) {
+        case 'investigate_building':
+        case 'investigate_mountain':
+        case 'investigate_hidden':
+        case 'shop_purchase':
+        case 'shrine_visit':
+          conditionMet = (get().villagerQuestProgress[vill.id] ?? 0) >= vill.hiddenCondition.target;
+          break;
+        case 'hold_relic':
+          const p = get().players.find(p => p.id === get().localPlayerId);
+          conditionMet = p?.ownedRelicIds.includes('Q2') ?? false;
+          break;
+      }
+    }
+
+    const canReach4 = maxBond >= 4 && (current < 3 || conditionMet);
+    const newLevel = Math.min(canReach4 ? 4 : maxBond, current + actualIncrease) as BondLevel;
 
     set(s => ({
       villagerBonds: { ...s.villagerBonds, [villagerId]: newLevel },
       apRemaining: s.apRemaining - 1,
-      tabooViolations: newTabooViolations,
     }));
 
     // Bond milestone rewards
-    if (newLevel === 2 && current < 2) {
+    if (newLevel === 1 && current < 1) {
+      const coinCfg = getCoinConfig(get().coinDifficulty);
+      const coins = Math.floor(Math.random() * (coinCfg.earnBondReward[1] - coinCfg.earnBondReward[0] + 1)) + coinCfg.earnBondReward[0];
+      if (coins > 0) get().earnCoins(coins);
+      get().addLog(`${vill?.name || 'Villager'} welcomes you with a gift of ${coins} coins!`, 'success');
+      set({ bondReward: { villagerName: vill?.name ?? '???', level: 1, message: `獲得 ${coins} 古錢的見面禮。`, reward: 'coins' } });
+    } else if (newLevel === 2 && current < 2) {
       get().addLog(`${vill?.name || 'Villager'} shared rumors about the chaser's weakness!`, 'success');
       get().addLog(`Weakness data recorded.`, 'info');
       set({ bondReward: { villagerName: vill?.name ?? '???', level: 2, message: `The chaser ${get().currentDimensions?.chaser.name} is weak to ${get().currentDimensions?.chaser.weakTags.join(', ')}.` } });
@@ -821,9 +1150,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
       get().addLog(`Received ${giftName}!`, 'success');
       set({ bondReward: { villagerName: vill?.name ?? '???', level: 3, message: 'A heartfelt gift from a friend.', reward: giftName } });
     } else if (newLevel === 4 && current < 4) {
-      get().addLog(`${vill?.name || 'Villager'} requests your aid in the coming battle!`, 'warning');
-      get().addLog(`They will assist during the confrontation.`, 'warning');
-      set({ bondReward: { villagerName: vill?.name ?? '???', level: 4, message: 'They stand ready to help you confront the darkness.' } });
+      get().addLog(`${vill?.name || 'Villager'} stands with you now!`, 'warning');
+      get().addLog(`Their bond is unbreakable.`, 'warning');
+      set(s => ({ revealedIdentities: { ...s.revealedIdentities, [villagerId]: true } }));
+      set({ bondReward: { villagerName: vill?.name ?? '???', level: 4, message: `你完成了『${vill?.hiddenCondition.description}』，${vill?.name}與你締結了命運的羈絆。` } });
+    } else if (current >= 3 && !conditionMet && vill) {
+      const progress = get().villagerQuestProgress[vill.id] ?? 0;
+      const target = vill.hiddenCondition.target;
+      const pct = Math.min(100, Math.round(progress / target * 100));
+      get().addLog(`${vill.name}的隱藏條件進度：${pct}% (${progress}/${target})`, 'info');
     }
 
     get().addLog(`Bond with ${vill?.name || 'Villager'} reached Lv.${newLevel}${actualIncrease < 1 ? ' (atmosphere dampened the bond)' : ''}.`, 'info');
@@ -849,11 +1184,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
             p.activeChain = { id: -1, relicA: '', relicB: '', name: activeChain, effect: chainEffect };
           }
         });
-        get().addLog(`Relic chain: {activeChain} — {chainEffect}.`, 'info');
+        get().addLog(`Relic chain: ${activeChain} — ${chainEffect}.`, 'info');
+        set({ showMemoryFlashback: true, flashbackChain: { name: activeChain, effect: chainEffect } });
       }
     }
 
     set({ players: updatedPlayers });
+    soundManager.play('success');
     get().addLog(`Acquired relic: ${relic.name}! ${relic.passiveEffect}`, 'success');
   },
 
@@ -871,12 +1208,106 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!player) return;
 
     const totalNodes = boardNodes.length;
-    const newPos = (player.boardPosition + steps + totalNodes) % totalNodes;
+    let newPos = (player.boardPosition + steps + totalNodes) % totalNodes;
+
+    // Obstacle blocks movement — push player back to starting position
+    if (boardNodes[newPos]?.isObstacle) {
+      get().addLog('Obstacle blocks your path! You are pushed back.', 'danger');
+      soundManager.play('failure');
+      // Apply a small lantern penalty for hitting an obstacle
+      const newLanterns = Math.max(0, get().lanternCount - 1);
+      set({ lanternCount: newLanterns });
+      newPos = player.boardPosition; // Stay in place
+    }
+
     const updated = players.map(p =>
       p.id === localPlayerId ? { ...p, boardPosition: newPos } : p
     );
     set({ players: updated });
-    get().addLog(`Moved ${steps} space(s) on the battle board.`, 'info');
+    if (newPos !== player.boardPosition) {
+      get().addLog(`Moved ${steps} space(s) on the battle board.`, 'info');
+    }
+  },
+
+  teleportToEntrance: () => {
+    const { players, localPlayerId, mapTiles, currentDimensions, apRemaining } = get();
+    if (apRemaining <= 0) return;
+    const player = players.find(p => p.id === localPlayerId);
+    if (!player) return;
+
+    // Only Deity E allows teleport
+    if (currentDimensions?.deity.id !== 'E') {
+      get().addLog('Only 道祖神 grants teleportation.', 'warning');
+      return;
+    }
+
+    const currentTile = mapTiles.find(t => t.id === player.mapPosition);
+    // Must be on a shrine or stone monument tile (shrine type)
+    if (!currentTile || (currentTile.type !== 'shrine' && currentTile.type !== 'building')) {
+      get().addLog('You must be at a stone monument to teleport.', 'warning');
+      return;
+    }
+
+    // Teleport to village entrance (tile 0)
+    const updated = players.map(p =>
+      p.id === localPlayerId ? { ...p, mapPosition: 0 } : p
+    );
+    set({ players: updated, apRemaining: apRemaining - 1 });
+    get().addLog('道祖神的石碑閃耀光芒 — you teleport to the village entrance!', 'success');
+    soundManager.play('success');
+  },
+
+  freePeek: (nodeId) => {
+    const { boardNodes, players, localPlayerId, battleFlags } = get();
+    if (battleFlags.foxPeekUsed) {
+      get().addLog('You already used your free peek this turn.', 'warning');
+      return;
+    }
+    const player = players.find(p => p.id === localPlayerId);
+    if (!player || player.characterId !== 'fox') {
+      get().addLog('Only Fox can use free peek.', 'warning');
+      return;
+    }
+    const node = boardNodes.find(n => n.id === nodeId);
+    if (!node || !node.isFaceDown || !node.cardId) return;
+
+    const updatedNodes = boardNodes.map(n =>
+      n.id === nodeId ? { ...n, isFaceDown: false } : n
+    );
+    const card = getCardById(node.cardId);
+    set({
+      boardNodes: updatedNodes,
+      battleFlags: { ...battleFlags, foxPeekUsed: true },
+    });
+    get().addLog(`Fox's intuition reveals: ${card?.name ?? 'Unknown'}!`, 'success');
+    soundManager.play('success');
+  },
+
+  investigateNode: (nodeId) => {
+    const { boardNodes, players, localPlayerId, battleActionsRemaining, deckIds, discardIds } = get();
+    if (battleActionsRemaining <= 0) return;
+    const node = boardNodes.find(n => n.id === nodeId);
+    if (!node || !node.isFaceDown || !node.cardId) return;
+    const card = getCardById(node.cardId);
+    if (!card) return;
+
+    const updatedNodes = boardNodes.map(n =>
+      n.id === nodeId ? { ...n, isFaceDown: false } : n
+    );
+    const player = players.find(p => p.id === localPlayerId);
+    if (!player) return;
+    const updatedPlayers = players.map(p =>
+      p.id === localPlayerId
+        ? { ...p, handCardIds: [...p.handCardIds, node.cardId!] }
+        : p
+    );
+
+    set({
+      boardNodes: updatedNodes,
+      players: updatedPlayers,
+      battleActionsRemaining: battleActionsRemaining - 1,
+    });
+    get().addLog(`Investigated node ${nodeId}: obtained ${card.name}.`, 'success');
   },
 
   playCard: (cardId) => {
@@ -890,7 +1321,25 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const card = getCardById(cardId);
     if (!card) return;
+
+    // Check onlyNightCards flag (Chaser B / Twist C); seeInDark bypasses it.
+    if (battleFlags.onlyNightCards && !card.tags.includes('夜') && !battleFlags.seeInDark) {
+      get().addLog('現在只能打出【夜】牌！', 'warning');
+      return;
+    }
+
+    // Check seeInDark (Shop card S3) - bypass night restriction
+    if (battleFlags.seeInDark && battleFlags.onlyNightCards && !card.tags.includes('夜')) {
+      get().addLog('黑暗視野讓你正常出牌。', 'info');
+    }
+
+    if (battleFlags.onlyEscapeCards && !card.tags.includes('逃')) {
+      get().addLog('現在只能打出【逃】牌！', 'warning');
+      return;
+    }
+
     set({ playingCard: card });
+    soundManager.play('card_play');
 
     const character = CHARACTERS.find(c => c.id === player.characterId);
     const chaserId = currentDimensions?.chaser.id ?? 'A';
@@ -916,10 +1365,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const tabooSkipEffect = tabooResult.penalty.cardRemoved;
 
     // Apply taboo penalties immediately
-    let newTabooViolations = tabooViolations + (tabooResult.triggered ? 1 : 0);
     let tabooLanternLoss = tabooResult.penalty.lanternLoss;
 
     if (tabooResult.triggered) {
+      get().applyImbalance(tabooResult.penalty.imbalance);
       tabooResult.messages.forEach(m => get().addLog(m, 'danger'));
       set({ pendingTabooCheck: true, lastTabooResult: tabooResult });
     }
@@ -964,8 +1413,33 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     // Apply character bonuses + relic bonuses
     const relicNumBonus = (!tabooSkipEffect && player.ownedRelicIds.includes('Q18') && card.tags.includes('真')) ? 1 : 0;
-    const numBonus = (!tabooSkipEffect && character?.id === 'strong') ? 2 : 0;
+    let numBonus = (!tabooSkipEffect && character?.id === 'strong') ? 2 : 0;
+    // Fox: 【逃】數字+1
+    if (!tabooSkipEffect && character?.id === 'fox' && card.tags.includes('逃')) {
+      numBonus += 1;
+    }
     const effectiveNum = card.number + numBonus + relicNumBonus;
+
+    // Jizo: 【守】效果+1
+    if (!tabooSkipEffect && character?.id === 'jizo' && card.tags.includes('守')) {
+      result.drawCount += 1;
+      result.message += ' (地藏加護：額外抽1張)';
+    }
+
+    // Miko: 【問】效果加倍
+    if (!tabooSkipEffect && character?.id === 'miko' && card.tags.includes('問')) {
+      result.drawCount *= 2;
+      result.peekDeckCount = (result.peekDeckCount ?? 0) * 2;
+      result.message += ' (巫女之力：詢問效果加倍)';
+    }
+
+    // Strong: 【咒】副作用減半
+    if (!tabooSkipEffect && character?.id === 'strong' && card.tags.includes('咒')) {
+      if (result.lanternDelta < 0) {
+        result.lanternDelta = Math.ceil(result.lanternDelta / 2);
+        result.message += ' (怪力：詛咒副作用減半)';
+      }
+    }
 
     // Apply relic passives
     if (!tabooSkipEffect && player.ownedRelicIds.length > 0) {
@@ -1026,8 +1500,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       newDiscard = [...newDiscard, ...trueCardsInHand];
     }
 
-    // === Draw replacement cards ===
-    const drawCount = (tabooSkipEffect ? 0 : 1) + result.drawCount;
+    // === Draw replacement cards (only from effect, no auto-draw) ===
+    const drawCount = (tabooSkipEffect ? 0 : result.drawCount);
     let { drawn, newDeck, newDiscard: nd2 } = drawCards(deckIds, newDiscard, drawCount);
 
     // Draw specific from discard (???)
@@ -1142,7 +1616,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
       extraDivineCharge: battleFlags.extraDivineCharge || (result.specialFlags.extraDivineCharge ?? false),
       regenPerTurn: battleFlags.regenPerTurn || (result.specialFlags.regenPerTurn ?? false),
       ghostCardsActive: battleFlags.ghostCardsActive || (result.specialFlags.insertGhostCards ?? false),
+      seeInDark: battleFlags.seeInDark || (result.specialFlags.seeInDark ?? false),
     };
+
+    // Handle revealMap (Shop card S4) - reveal all hidden tiles
+    if (result.specialFlags.revealMap) {
+      set(s => ({
+        mapTiles: s.mapTiles.map(t => ({ ...t, isHidden: false }))
+      }));
+      get().addLog('地圖上所有隱藏點已揭示！', 'success');
+    }
 
     set({
       players: updatedPlayers,
@@ -1193,6 +1676,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const card = getCardById(cardId);
     if (!card) return;
+    soundManager.play('confrontation');
 
     const character = CHARACTERS.find(c => c.id === player.characterId);
 
@@ -1220,9 +1704,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let charBonus = 0;
     if (character?.id === 'strong') charBonus += 20;
 
-    // Relic bonuses ??Q3 (????????? allows choosing tag type
+    // Relic bonuses — Q3 allows choosing tag type, gives +15% for best tag match
     let relicBonus = 0;
     if (player.ownedRelicIds.includes('Q3')) {
+      relicBonus += 15;
       const q3 = RELICS.find(r => r.id === 'Q3');
       get().addLog(`Relic passive: ${q3?.passiveEffect ?? 'choose tag type'}`, 'info');
     }
@@ -1258,7 +1743,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const pushBack = CONFRONTATION_PUSH_BACK;
       const newChaserPos = (state.chaserPosition - pushBack + BOARD_NODE_COUNT) % BOARD_NODE_COUNT;
       set({ chaserPosition: newChaserPos });
-      get().addLog('Game event.', 'info');
+      get().addLog(`Confrontation won! Chaser pushed back ${pushBack} steps.`, 'success');
       // Play the card normally after successful confrontation
       get().playCard(cardId);
     } else {
@@ -1288,7 +1773,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       if (newLanterns <= 0) {
         set({ phase: 'defeat' });
-        get().addLog('Game event.', 'info');
+        soundManager.play('defeat');
+        get().addLog('The darkness consumes you. All lanterns extinguished.', 'danger');
       }
     }
   },
@@ -1312,64 +1798,90 @@ export const useGameStore = create<GameStore>((set, get) => ({
       get().addLog('Divine card activated! Lantern +1.', 'success');
     }
 
-    // Deity-specific intervention
-    switch (deity.id) {
-      case 'A': { // Jizo (push back chaser)
-        const newPos = (chaserPosition - 2 + BOARD_NODE_COUNT) % BOARD_NODE_COUNT;
-        set({
-          chaserPosition: newPos,
-          battleFlags: { ...get().battleFlags, chaserStoppedTurns: Math.max(battleFlags.chaserStoppedTurns, 2) },
-          lanternCount: Math.min(state.maxLanterns, lanternCount + 2),
-        });
-        get().addLog('Divine intervention: Jizo pushes chaser back and restores lanterns.', 'success');
-        break;
+    // Deity-specific intervention via unified card effect
+    const deityCardId = 'D' + deity.id;
+    const deityEffect = getCardEffect(deityCardId);
+    if (deityEffect) {
+      const player = players.find(p => p.id === localPlayerId);
+      const boardNodeSnapshot = state.boardNodes.map(n => ({ ...n }));
+      const effectCtx: EffectContext = {
+        card: { id: deityCardId, name: deity.name, number: 10, tags: [], category: 'divine', effect: '' },
+        handCardIds: player?.handCardIds ?? [],
+        discardIds: get().discardIds,
+        boardNodes: boardNodeSnapshot,
+        chaserPosition: get().chaserPosition,
+        playerBoardPosition: player?.boardPosition ?? 0,
+        playerCharacterId: player?.characterId ?? 'jizo',
+        environment: state.environment,
+        ownedRelicIds: player?.ownedRelicIds ?? [],
+        lastPlayedNumber: get().lastPlayedNumber,
+        victoryTarget: state.victoryTarget,
+        victoryId: state.currentDimensions?.victory.id ?? 'A',
+        turnNumber: state.turnNumber,
+        playerHp: player?.hp ?? 20,
+        maxHp: player?.maxHp ?? 20,
+        lanternCount: state.lanternCount,
+      };
+      const result = deityEffect(effectCtx);
+
+      // Apply effect results
+      let newChaserPos = state.chaserPosition;
+      let newBoardNodes = get().boardNodes;
+      let newLanterns = state.lanternCount;
+      let newFlags = { ...get().battleFlags };
+
+      if (result.setChaserPosition !== null) {
+        newChaserPos = result.setChaserPosition;
+      } else if (result.chaserDelta !== 0) {
+        const dir = result.chaserDelta > 0 ? -1 : 1;
+        newChaserPos = (newChaserPos + dir * Math.abs(result.chaserDelta) + BOARD_NODE_COUNT) % BOARD_NODE_COUNT;
       }
-      case 'B': {
-        set({
-          chaserPosition: (chaserPosition + 1 + BOARD_NODE_COUNT) % BOARD_NODE_COUNT,
-        });
-        get().addLog('Divine intervention: Inari guides the chaser away.', 'success');
-        break;
+
+      if (result.lanternDelta !== 0) {
+        newLanterns = Math.max(0, Math.min(state.maxLanterns, newLanterns + result.lanternDelta));
       }
-      case 'C': { // Rain (weather reset)
-        set({
-          environment: 'rain',
-          chaserPosition: (chaserPosition + 2 + BOARD_NODE_COUNT) % BOARD_NODE_COUNT,
-        });
-        get().addLog('Divine intervention: Water God brings rain and distracts the chaser.', 'success');
-        break;
+
+      if (result.nextChaserStopped) {
+        newFlags.chaserStoppedTurns = Math.max(newFlags.chaserStoppedTurns, 2);
       }
-      case 'D': { // Tree (fill hand)
-        const player = players.find(p => p.id === localPlayerId);
-        if (player) {
-          const handSize = player.handCardIds.length;
-          const fillCount = player.handLimit - handSize;
-          const { drawn, newDeck, newDiscard: nd2 } = drawCards(deckIds, discardIds, fillCount);
-          const updated = players.map(p =>
-            p.id === localPlayerId ? { ...p, handCardIds: [...p.handCardIds, ...drawn] } : p
-          );
-          set({ players: updated, deckIds: newDeck, discardIds: nd2 });
-          set({ lanternCount: Math.min(state.maxLanterns, lanternCount + 1) });
+      if (result.specialFlags.noLanternBurn) {
+        newFlags.noLanternBurn = true;
+      }
+      if (result.placeDecoy) {
+        const emptyNode = newBoardNodes.find(n => !n.isDecoy);
+        if (emptyNode) {
+          newBoardNodes = newBoardNodes.map(n => n.id === emptyNode.id ? { ...n, isDecoy: true } : n);
         }
-        get().addLog('Game event.', 'info');
-        break;
       }
-      case 'E': { // Road God (swap chaser with face-down card)
-        const boardNodes = get().boardNodes;
-        const targetNode = boardNodes.find(n => n.cardId && n.isFaceDown);
-        if (targetNode) {
-          set({ chaserPosition: targetNode.id });
-        }
-        get().addLog('Game event.', 'info');
-        break;
+      if (result.setEnvironment) {
+        set({ environment: result.setEnvironment as Environment });
       }
-      case 'F': { // Zashiki (safe turn)
+      if (result.setBoardNodes) {
+        newBoardNodes = result.setBoardNodes;
+      }
+      if (result.moveDelta > 0 && player) {
+        const newPos = (player.boardPosition + result.moveDelta + BOARD_NODE_COUNT) % BOARD_NODE_COUNT;
+        set({ players: get().players.map(p => p.id === localPlayerId ? { ...p, boardPosition: newPos } : p) });
+      }
+
+      set({
+        chaserPosition: newChaserPos,
+        lanternCount: newLanterns,
+        boardNodes: newBoardNodes,
+        battleFlags: newFlags,
+      });
+
+      const player2 = get().players.find(p => p.id === localPlayerId);
+      if (player2 && result.drawCount > 0) {
+        const { drawn, newDeck, newDiscard: nd } = drawCards(get().deckIds, get().discardIds, result.drawCount);
         set({
-          battleFlags: { ...get().battleFlags, chaserStoppedTurns: Math.max(battleFlags.chaserStoppedTurns, 1), noLanternBurn: true },
+          players: get().players.map(p => p.id === localPlayerId ? { ...p, handCardIds: [...p.handCardIds, ...drawn] } : p),
+          deckIds: newDeck,
+          discardIds: nd,
         });
-        get().addLog('Game event.', 'info');
-        break;
       }
+
+      get().addLog(`${deity.name} 回應了你的祈禱：${result.message}`, 'success');
     }
   },
 
@@ -1377,9 +1889,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { victoryProgress, victoryTarget } = get();
     if (victoryProgress >= victoryTarget) {
       set({ phase: 'victory' });
+      soundManager.play('victory');
       get().addLog(`Escape progress: ${victoryProgress}/${victoryTarget}`, 'warning');
     } else {
-      get().addLog(`Escape progress: ${victoryProgress}/${victoryTarget}`, 'warning');
+      get().addLog(`Cannot escape yet: ${victoryProgress}/${victoryTarget} progress.`, 'info');
     }
   },
 
@@ -1396,6 +1909,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let resolvedHand = [...player.handCardIds];
     let resolvedMustDiscard = false;
     let resolvedExtraPlay = false;
+    let resolvedBoardPosition = player.boardPosition;
 
     if (player.mustDiscardNextTurn && resolvedHand.length > 0) {
       const discarded = resolvedHand[0];
@@ -1455,6 +1969,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     let aiResult = computeChaserAI(chaserCtx);
+
+    // Safe zone effect: chaser skips move when player is on safe zone
+    if (boardNodes[player.boardPosition]?.isSafeZone) {
+      aiResult = { ...aiResult, move: 0, newChaserPos: chaserPosition, specialEffect: 'Player is in a safe zone — chaser skips.' };
+      get().addLog('You rest in a safe zone. The chaser hesitates.', 'success');
+    }
 
     // Override with battle flags
     if (battleFlags.chaserStoppedTurns > 0) {
@@ -1524,7 +2044,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
       newFlags = { ...newFlags, ...aiResult.extraFlags };
     }
 
-    const confrontationTriggered = newChaserPos === player.boardPosition;
+    // Chaser F: Swap a card from player's hand with one from discard (unless chain 6 active)
+    if (currentDimensions?.chaser.id === 'F' && player.handCardIds.length > 0 && discardIds.length > 0) {
+      const chainName = player.activeChain?.name;
+      if (chainName !== '狐狸的約定') {
+        const handIdx = Math.floor(Math.random() * player.handCardIds.length);
+        const discardIdx = Math.floor(Math.random() * discardIds.length);
+        const handCard = player.handCardIds[handIdx];
+        const discardCard = discardIds[discardIdx];
+        resolvedHand = [...resolvedHand.filter((_, i) => i !== handIdx), discardCard];
+        const newDiscard = [...discardIds.filter((_, i) => i !== discardIdx), handCard];
+        set({ discardIds: newDiscard });
+        get().addLog(`亡者與你交換了一張手牌。`, 'warning');
+      } else {
+        get().addLog(`狐狸的約定保護了你，亡者無法交換手牌。`, 'success');
+      }
+    }
+
+    // Check confrontation against head AND body (Chaser E)
+    const bodyPos = newFlags.chaserBodyPosition;
+    const confrontationTriggered = newChaserPos === player.boardPosition ||
+      (currentDimensions?.chaser.id === 'E' && bodyPos >= 0 && bodyPos === player.boardPosition);
 
     // Lantern consumption
     if (chaserMove > 0 && !battleFlags.noLanternBurn) {
@@ -1541,10 +2081,128 @@ export const useGameStore = create<GameStore>((set, get) => ({
     newFlags.noLanternBurn = false;
     newFlags.chaserDirectionRandom = false;
     newFlags.onlyEscapeCards = false;
+    newFlags.blurredCards = false;
+    newFlags.foxPeekUsed = false;
     // Don't reset onlyNightCards and chaserRandom if twist is active
     if (twist?.id !== 'C') {
       newFlags.onlyNightCards = false;
       newFlags.chaserRandom = false;
+    }
+
+    // === Villager assist check ===
+    let newCooldown = Math.max(0, get().pendingVillagerAssistCooldown - 1);
+    const villagerAssistMessages: string[] = [];
+
+    if (newCooldown === 0) {
+      for (const v of VILLAGERS) {
+        const bond = get().villagerBonds[v.id] ?? 0;
+        if (bond < 3) continue;
+
+        // Calculate assist chance: base = bondLevel * 12
+        let chance = bond * 12;
+        if (get().lanternCount <= 3) chance += 15;
+        if (player.handCardIds.length <= 2) chance += 10;
+        if (['rain', 'fog', 'dark'].includes(environment)) chance += 10;
+        const dist = Math.abs(((player?.boardPosition ?? 0) - get().chaserPosition + totalNodes) % totalNodes);
+        if (dist <= 2) chance += 15;
+        chance = Math.min(chance, 80);
+
+        if (Math.random() * 100 < chance) {
+          newCooldown = 3;
+          const cardEffect = getCardEffect(v.assistCardId);
+          if (cardEffect) {
+            const assistCtx: EffectContext = {
+              card: { id: v.assistCardId, name: v.name, number: 3, tags: [], category: 'villager', effect: '' },
+              handCardIds: player.handCardIds,
+              discardIds: get().discardIds,
+              boardNodes: get().boardNodes.map(n => ({ ...n })),
+              chaserPosition: get().chaserPosition,
+              playerBoardPosition: player.boardPosition,
+              playerCharacterId: player.characterId,
+              environment,
+              ownedRelicIds: player.ownedRelicIds,
+              lastPlayedNumber: get().lastPlayedNumber,
+              victoryTarget: get().victoryTarget,
+              victoryId: get().currentDimensions?.victory.id ?? 'A',
+              turnNumber: get().turnNumber,
+              playerHp: player.hp,
+              maxHp: player.maxHp,
+              lanternCount: get().lanternCount,
+            };
+            const assistResult = cardEffect(assistCtx);
+
+            // Apply assist effects
+            if (assistResult.moveDelta > 0) {
+              const newPos = (player.boardPosition + assistResult.moveDelta + totalNodes) % totalNodes;
+              resolvedBoardPosition = newPos;
+              get().addLog(`${v.name} 出手相助：移動 ${assistResult.moveDelta} 步！`, 'success');
+            }
+            if (assistResult.drawCount > 0) {
+              const dd = get().deckIds;
+              const dis = get().discardIds;
+              const { drawn, newDeck: nd, newDiscard: nd2 } = drawCards(dd, dis, assistResult.drawCount);
+              resolvedHand = [...resolvedHand, ...drawn];
+              set({ deckIds: nd, discardIds: nd2 });
+              get().addLog(`${v.name} 送來一張牌！`, 'success');
+            }
+            if (assistResult.drawFromDiscard.length > 0) {
+              const dis = get().discardIds;
+              const { drawn: d, newDiscard: nd2 } = drawSpecificFromDiscard(get().deckIds, dis, assistResult.drawFromDiscard);
+              resolvedHand = [...resolvedHand, ...d];
+              set({ discardIds: nd2 });
+              get().addLog(`${v.name} 從棄牌堆找回一張牌。`, 'success');
+            }
+            if (assistResult.peekDeckCount > 0) {
+              get().addLog(`${v.name} 幫你窺視了牌庫頂 ${assistResult.peekDeckCount} 張牌。`, 'info');
+            }
+            if (assistResult.chaserDelta !== 0) {
+              newChaserPos = (newChaserPos + (assistResult.chaserDelta > 0 ? -1 : 1) * Math.abs(assistResult.chaserDelta) + totalNodes) % totalNodes;
+              get().addLog(`${v.name} 拖住了追逐者！`, 'success');
+            }
+            if (assistResult.lanternDelta !== 0) {
+              newLanterns = Math.max(0, Math.min(get().maxLanterns, newLanterns + assistResult.lanternDelta));
+              get().addLog(`${v.name} 為你恢復了 ${assistResult.lanternDelta} 燈火。`, 'success');
+            }
+            if (assistResult.placeDecoy) {
+              const emptyNode = get().boardNodes.find(n => !n.isDecoy);
+              if (emptyNode) {
+                set(s => ({ boardNodes: s.boardNodes.map(n => n.id === emptyNode.id ? { ...n, isDecoy: true } : n) }));
+              }
+              get().addLog(`${v.name} 製造了一個誘餌！`, 'success');
+            }
+            if (assistResult.specialFlags.ignoreConfrontation) {
+              get().addLog(`${v.name} 讓追逐者忽視了你。`, 'success');
+            }
+            // Handle absorbConfrontationFail
+            if (assistResult.specialFlags.absorbConfrontationFail ?? assistResult.specialFlags.blockTabooOnce) {
+              newFlags.blockTabooOnce = true;
+              get().addLog(`${v.name} 給了你一道護身符。`, 'success');
+            }
+            if (assistResult.revealAllNodes) {
+              set(s => ({ boardNodes: s.boardNodes.map(n => ({ ...n, isFaceDown: false })) }));
+              get().addLog(`${v.name} 照亮了所有節點！`, 'success');
+            }
+            if (assistResult.message) {
+              get().addLog(`${v.name}: ${assistResult.message}`, 'info');
+            }
+          } else {
+            // Default assist if no card effect: recover 1 lantern
+            newLanterns = Math.min(get().maxLanterns, newLanterns + 1);
+            get().addLog(`${v.name} 伸出援手。`, 'success');
+          }
+          break; // Only one assist per turn
+        }
+      }
+    }
+
+    // Environment auto-change: every 3 turns, shift to a random environment
+    let newEnvironment = environment;
+    const envCycle = (turnNumber + 1) % 3;
+    if (envCycle === 0 && !twist) {
+      const envPool: Environment[] = ['clear', 'rain', 'fog', 'moonlit', 'dark'];
+      const candidates = envPool.filter(e => e !== environment);
+      newEnvironment = candidates[Math.floor(Math.random() * candidates.length)];
+      get().addLog(`The atmosphere shifts... now ${ENVIRONMENT_EFFECTS[newEnvironment]?.name ?? newEnvironment}.`, 'system');
     }
 
     // Build updated player
@@ -1553,6 +2211,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       handCardIds: resolvedHand,
       mustDiscardNextTurn: resolvedMustDiscard,
       nextTurnExtraPlay: resolvedExtraPlay,
+      boardPosition: resolvedBoardPosition,
     };
 
     set({
@@ -1562,18 +2221,32 @@ export const useGameStore = create<GameStore>((set, get) => ({
       turnNumber: turnNumber + 1,
       lastChaserMove: chaserMove,
       battleFlags: newFlags,
+      battleActionsRemaining: 1,
+      pendingVillagerAssistCooldown: newCooldown,
+      environment: newEnvironment,
     });
 
     if (confrontationTriggered) {
-      get().addLog('Confrontation lost! Chaser advances.', 'danger');
+      get().addLog('Chaser reached you — confrontation!', 'danger');
     } else if (chaserMove > 0) {
-      get().addLog(`Chaser moves. Lanterns: {lanternCount}.`, 'info');
+      get().addLog(`Chaser moves. Lanterns: ${get().lanternCount}.`, 'info');
     } else {
-      get().addLog('Confrontation lost! Chaser advances.', 'danger');
+      get().addLog('The chaser hesitates.', 'info');
+    }
+
+    // Imbalance natural decay: -1 every 2 turns
+    const currentImbalance = get().imbalanceCount;
+    if (currentImbalance > 0) {
+      const newDecayCounter = get().imbalanceDecayCounter + 1;
+      if (newDecayCounter >= 2) {
+        set({ imbalanceCount: currentImbalance - 1, imbalanceDecayCounter: 0 });
+      } else {
+        set({ imbalanceDecayCounter: newDecayCounter });
+      }
     }
 
     // Check defeat conditions
-    if (newLanterns <= 0 || tabooViolations >= 3) {
+    if (newLanterns <= 0 || get().imbalanceCount >= 3) {
       if (newLanterns <= 0) {
         get().addLog('The darkness consumes you. Defeat.', 'danger');
       } else {
@@ -1584,6 +2257,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   rollDice: (baseRate, label, bonuses = []) => {
+    soundManager.play('dice_roll');
     const totalBonus = bonuses.reduce((sum, b) => sum + b.value, 0);
     const finalRate = Math.min(95, Math.max(5, baseRate + totalBonus));
     const roll = Math.floor(Math.random() * 100) + 1;
@@ -1611,6 +2285,34 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   closeDiceModal: () => set({ showDiceModal: false, pendingDice: null }),
+
+  setCoinDifficulty: (d) => set({ coinDifficulty: d }),
+
+  earnCoins: (amount) => {
+    const { players, localPlayerId } = get();
+    set(s => ({
+      players: s.players.map(p =>
+        p.id === localPlayerId ? { ...p, coins: p.coins + amount } : p
+      ),
+    }));
+    get().addLog(`Earned ${amount} coins.`, 'success');
+  },
+
+  applyImbalance: (amount) => {
+    // Block taboo once if flag is set
+    if (get().battleFlags.blockTabooOnce) {
+      set(s => ({ battleFlags: { ...s.battleFlags, blockTabooOnce: false } }));
+      get().addLog('護身符抵擋了一次禁忌觸發！', 'success');
+      return;
+    }
+    const newCount = get().imbalanceCount + amount;
+    set({ imbalanceCount: newCount, imbalanceDecayCounter: 0 });
+    get().addLog(`失衡 +${amount}（累積 ${newCount}/3）`, 'danger');
+    if (newCount >= 3) {
+      set({ lanternCount: 0 });
+      get().addLog('失衡已滿！燈火熄滅……', 'danger');
+    }
+  },
 
   addLog: (text, type = 'info') => {
     set(s => ({

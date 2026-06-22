@@ -1,5 +1,12 @@
 export type BondLevel = 0 | 1 | 2 | 3 | 4;
 
+export interface HiddenCondition {
+  description: string;
+  type: 'investigate_building' | 'hold_relic' | 'investigate_mountain' | 'shop_purchase' | 'shrine_visit' | 'investigate_hidden';
+  target: number; // required count or relic ID
+  completionCheck: string; // display text for UI
+}
+
 export interface Villager {
   id: string;
   name: string;
@@ -8,6 +15,7 @@ export interface Villager {
   likedGifts: string[];
   dislikedGifts: string[];
   assistCardId: string;
+  hiddenCondition: HiddenCondition;
 }
 
 export interface BondTier {
@@ -35,6 +43,7 @@ export const VILLAGERS: Villager[] = [
     likedGifts: ['線香', '書'],
     dislikedGifts: ['糖果', '玩具'],
     assistCardId: 'V1',
+    hiddenCondition: { description: '在建築格中調查找到「被遺忘的村章」', type: 'investigate_building', target: 1, completionCheck: '在建築中發現村章' },
   },
   {
     id: 'granny',
@@ -44,6 +53,7 @@ export const VILLAGERS: Villager[] = [
     likedGifts: ['飯糰', '線香'],
     dislikedGifts: ['石頭', '繩子'],
     assistCardId: 'V2',
+    hiddenCondition: { description: '持有「雨女的木梳」(Q2) 時與阿嬤對話', type: 'hold_relic', target: 0, completionCheck: '持有 Q2' },
   },
   {
     id: 'woodcutter',
@@ -53,6 +63,7 @@ export const VILLAGERS: Villager[] = [
     likedGifts: ['繩子', '護符'],
     dislikedGifts: ['梳子', '書'],
     assistCardId: 'V3',
+    hiddenCondition: { description: '在山區格調查 3 次', type: 'investigate_mountain', target: 3, completionCheck: '山區調查 3/3' },
   },
   {
     id: 'fishmonger',
@@ -62,6 +73,7 @@ export const VILLAGERS: Villager[] = [
     likedGifts: ['梳子', '飯糰'],
     dislikedGifts: ['石頭', '鈴鐺'],
     assistCardId: 'V4',
+    hiddenCondition: { description: '在商店消費 3 次', type: 'shop_purchase', target: 3, completionCheck: '商店消費 3/3' },
   },
   {
     id: 'shrine_maiden',
@@ -71,6 +83,7 @@ export const VILLAGERS: Villager[] = [
     likedGifts: ['護符', '鈴鐺'],
     dislikedGifts: ['斧頭', '石頭'],
     assistCardId: 'V5',
+    hiddenCondition: { description: '在神社參拜 3 次', type: 'shrine_visit', target: 3, completionCheck: '參拜神社 3/3' },
   },
   {
     id: 'child',
@@ -80,5 +93,6 @@ export const VILLAGERS: Villager[] = [
     likedGifts: ['糖果', '玩具'],
     dislikedGifts: ['書', '護符'],
     assistCardId: 'V6',
+    hiddenCondition: { description: '在隱藏格調查找到「孩子的玩具」', type: 'investigate_hidden', target: 1, completionCheck: '找到孩子的玩具' },
   },
 ];

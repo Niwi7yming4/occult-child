@@ -4,6 +4,7 @@ export interface HideContext {
   hasFog: boolean;
   tileHasBuilding: boolean;
   breathHeldTurns: number;  // How many turns player has been holding breath
+  deityId?: string;  // Current deity ID for bonuses
 }
 
 export interface HideResult {
@@ -17,7 +18,7 @@ export interface HideResult {
  * Determine if player can hide at current location and the risk.
  */
 export function evaluateHide(ctx: HideContext): HideResult {
-  const { chaserDistance, environment, hasFog, tileHasBuilding, breathHeldTurns } = ctx;
+  const { chaserDistance, environment, hasFog, tileHasBuilding, breathHeldTurns, deityId } = ctx;
 
   // Can only hide if chaser is close or if player is in a building
   if (chaserDistance > 3 && !tileHasBuilding) {
@@ -30,6 +31,9 @@ export function evaluateHide(ctx: HideContext): HideResult {
   if (hasFog || environment === 'fog') detectionChance += 10;
   if (environment === 'dark') detectionChance += 20;
   if (tileHasBuilding) detectionChance -= 20;
+
+  // Deity F bonus: hiding at building reduces detection chance further
+  if (deityId === 'F' && tileHasBuilding) detectionChance -= 15;
 
   // Distance modifiers
   if (chaserDistance <= 1) detectionChance += 30;

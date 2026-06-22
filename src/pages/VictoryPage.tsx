@@ -102,48 +102,71 @@ export default function VictoryPage() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 1.0 }}
-              className="panel-paper rounded-sm shadow-2xl p-6 mb-8 text-left"
+              className="relative shadow-2xl mb-8"
             >
-              {/* Book header */}
-              <div className="text-center font-serif text-[#5A3A18]/60 text-xs tracking-[0.5em] mb-4 pb-3 border-b border-[rgba(60,36,16,0.15)]">
-                 {t('見聞錄 ・ 今局記要')}
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                   <span className="font-serif text-[#5A3A18]/65 text-sm">{t('破局方式')}</span>
-                   <span className="font-serif font-bold text-[#B5382C]">{t(currentDimensions?.victory.name)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                   <span className="font-serif text-[#5A3A18]/65 text-sm">{t('追逐者')}</span>
-                   <span className="font-serif font-bold text-[#2A1A0E]">{t(currentDimensions?.chaser.name)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                   <span className="font-serif text-[#5A3A18]/65 text-sm">{t('生還回合')}</span>
-                   <span className="font-serif font-bold text-[#2A1A0E]">{turnNumber} {t('回合')}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                   <span className="font-serif text-[#5A3A18]/65 text-sm">{t('殘存燈火')}</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-serif font-bold text-[#C8A046]">{lanternCount}</span>
-                    <div className="flex gap-0.5">
-                      {Array.from({ length: Math.min(lanternCount, 10) }).map((_, i) => (
-                        <div key={i} className="w-1.5 h-4 rounded-sm candle-live"
-                          style={{ background: '#C8A046', animationDelay: `${i * 0.2}s` }} />
-                      ))}
+              {/* Book spine */}
+              <div className="absolute left-1/2 top-0 bottom-0 w-px bg-[rgba(60,36,16,0.2)] z-10" />
+              
+              {/* Two-page spread */}
+              <div className="flex">
+                {/* Left page */}
+                <div className="panel-paper rounded-l-sm p-6 text-left flex-1 min-h-[280px]"
+                  style={{ borderRight: '1px solid rgba(60,36,16,0.1)' }}>
+                  <div className="text-center font-serif text-[#5A3A18]/60 text-xs tracking-[0.5em] mb-4 pb-3 border-b border-[rgba(60,36,16,0.15)]">
+                     {t('見聞錄 ・ 左頁')}
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                       <span className="font-serif text-[#5A3A18]/65 text-sm">{t('破局方式')}</span>
+                       <span className="font-serif font-bold text-[#B5382C]">{t(currentDimensions?.victory.name)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                       <span className="font-serif text-[#5A3A18]/65 text-sm">{t('追逐者')}</span>
+                       <span className="font-serif font-bold text-[#2A1A0E]">{t(currentDimensions?.chaser.name)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                       <span className="font-serif text-[#5A3A18]/65 text-sm">{t('村中氛圍')}</span>
+                       <span className="font-serif font-bold text-[#2A1A0E]">{t(currentDimensions?.atmosphere.name)}</span>
                     </div>
                   </div>
                 </div>
-                {currentDimensions?.deity && (
-                  <div className="flex justify-between items-center">
-                     <span className="font-serif text-[#5A3A18]/65 text-sm">{t('在場神明')}</span>
-                     <span className="font-serif font-bold text-[#D4A040]">{t(currentDimensions.deity.name)}</span>
+                
+                {/* Right page */}
+                <div className="panel-paper rounded-r-sm p-6 text-left flex-1 min-h-[280px]">
+                  <div className="text-center font-serif text-[#5A3A18]/60 text-xs tracking-[0.5em] mb-4 pb-3 border-b border-[rgba(60,36,16,0.15)]">
+                     {t('見聞錄 ・ 右頁')}
                   </div>
-                )}
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                       <span className="font-serif text-[#5A3A18]/65 text-sm">{t('生還回合')}</span>
+                       <span className="font-serif font-bold text-[#2A1A0E]">{turnNumber} {t('回合')}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                       <span className="font-serif text-[#5A3A18]/65 text-sm">{t('殘存燈火')}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-serif font-bold text-[#C8A046]">{lanternCount}</span>
+                        <div className="flex gap-0.5">
+                          {Array.from({ length: Math.min(lanternCount, 10) }).map((_, i) => (
+                            <div key={i} className="w-1.5 h-4 rounded-sm candle-live"
+                              style={{ background: '#C8A046', animationDelay: `${i * 0.2}s` }} />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    {currentDimensions?.deity && (
+                      <div className="flex justify-between items-center">
+                         <span className="font-serif text-[#5A3A18]/65 text-sm">{t('在場神明')}</span>
+                         <span className="font-serif font-bold text-[#D4A040]">{t(currentDimensions.deity.name)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-
-              {/* Flavor text */}
-              <div className="mt-4 pt-3 border-t border-[rgba(60,36,16,0.12)] text-[11px] text-[#5A3A18]/50 font-serif italic text-center leading-relaxed">
+              
+              {/* Flavor text at bottom */}
+              <div className="panel-paper rounded-b-sm px-6 py-3 border-t border-[rgba(60,36,16,0.1)] text-[11px] text-[#5A3A18]/50 font-serif italic text-center leading-relaxed">
                 {t('「那一夜的事，我會記得一輩子。」')}
               </div>
             </motion.div>

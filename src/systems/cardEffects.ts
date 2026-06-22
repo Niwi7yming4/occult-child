@@ -28,6 +28,8 @@ export interface BoardNodeSnapshot {
   isDecoy: boolean;
   isObstacle: boolean;
   isSafeZone: boolean;
+  isRelicNode: boolean;
+  flavorText?: string;
 }
 
 export interface EffectResult {
